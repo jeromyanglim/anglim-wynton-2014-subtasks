@@ -1,0 +1,81 @@
+model{
+    # Model
+    for (i in 1:length(y)) {
+        mu[i] <- subtask_1[i] * (beta1_1[subject[i]] * exp(beta2_1[subject[i]] * (trial[i] - 1)) + beta3_1[subject[i]] + 
+                                theta1_1 * strategy_filter_level[i] + theta2_1 * strategy_questions_irrelevant_unique_sum[i]) +
+                 subtask_2[i] * (beta1_2[subject[i]] * exp(beta2_2[subject[i]] * (trial[i] - 1)) + beta3_2[subject[i]] + 
+                                theta1_2 * strategy_filter_level[i]+ theta2_2 * strategy_questions_irrelevant_unique_sum[i]) +
+                 subtask_3[i] * (beta1_3[subject[i]] * exp(beta2_3[subject[i]] * (trial[i] - 1)) + beta3_3[subject[i]] +
+                                theta1_3 * strategy_filter_level[i]+ theta2_3 * strategy_questions_irrelevant_unique_sum[i])
+        y[i]  ~ dnorm(mu[i], sigma[subject[i]])
+    }
+
+    # Random coefficients
+    for (i in 1:N) {    
+        beta1_1[i] ~ dnorm(beta1_1.mu, beta1_1.tau)
+        beta1_2[i] ~ dnorm(beta1_2.mu, beta1_2.tau)
+        beta1_3[i] ~ dnorm(beta1_3.mu, beta1_3.tau)
+
+        beta2_1[i] ~ dnorm(beta2_1.mu, beta2_1.tau)
+        beta2_2[i] ~ dnorm(beta2_2.mu, beta2_2.tau)
+        beta2_3[i] ~ dnorm(beta2_3.mu, beta2_3.tau)
+
+        beta3_1[i] ~ dnorm(beta3_1.mu, beta3_1.tau)
+        beta3_2[i] ~ dnorm(beta3_2.mu, beta3_2.tau)
+        beta3_3[i] ~ dnorm(beta3_3.mu, beta3_3.tau)
+        
+        sigma[i] ~ dnorm(sigma.mu, sigma.tau)
+
+    }
+
+    # Priors
+    theta1_1 ~ dunif(-20,20)
+    theta1_2 ~ dunif(-20,20)
+    theta1_3 ~ dunif(-20,20)
+
+    theta2_1 ~ dunif(-20,20)
+    theta2_2 ~ dunif(-20,20)
+    theta2_3 ~ dunif(-20,20)
+
+    beta1_1.mu  ~ dunif(0, 100)
+    beta1_2.mu   ~dunif(0, 100)
+    beta1_3.mu   ~ dunif(0, 100)
+    beta1_1.sigma ~ dunif(0, 100)
+    beta1_2.sigma ~ dunif(0, 100)
+    beta1_3.sigma ~ dunif(0, 100)
+
+    beta2_1.mu  ~ dunif(-1, 0)
+    beta2_2.mu   ~ dunif(-1, 0)
+    beta2_3.mu   ~ dunif(-1, 0)
+    beta2_1.sigma ~ dunif(0, 2)
+    beta2_2.sigma ~ dunif(0, 2)
+    beta2_3.sigma ~ dunif(0, 2)
+
+    beta3_1.mu  ~ dunif(0, 100)
+    beta3_2.mu   ~ dunif(0, 100)
+    beta3_3.mu   ~ dunif(0, 100)
+    beta3_1.sigma ~ dunif(0, 100)
+    beta3_2.sigma ~ dunif(0, 100)
+    beta3_3.sigma ~ dunif(0, 100)
+
+    sigma.mu ~ dunif(0, 10)
+    sigma.sigma ~ dunif(0, 10)
+    
+    # Transformations
+    beta1_1.tau  <- 1.0/(beta1_1.sigma^2);
+    beta1_2.tau  <- 1.0/(beta1_2.sigma^2);
+    beta1_3.tau  <- 1.0/(beta1_3.sigma^2);
+
+    beta2_1.tau  <- 1.0/(beta2_1.sigma^2);
+    beta2_2.tau  <- 1.0/(beta2_2.sigma^2);
+    beta2_3.tau  <- 1.0/(beta2_3.sigma^2);
+
+    beta3_1.tau  <- 1.0/(beta3_1.sigma^2);
+    beta3_2.tau  <- 1.0/(beta3_2.sigma^2);
+    beta3_3.tau  <- 1.0/(beta3_3.sigma^2);
+
+    tau    <- 1.0/(sigma^2);
+
+    sigma.tau <- 1/ (sigma.sigma^2)
+
+}

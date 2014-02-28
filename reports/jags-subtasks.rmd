@@ -1,0 +1,225 @@
+# Import packages
+```{r message=FALSE}
+library(ProjectTemplate); load.project()
+set.seed(1234)
+
+Data <- ribs[,c('user_id', 'block', 'subtask', 'rt', 'strategy_filter_level', 'strategy_questions_irrelevant_unique_mean', 'strategy_accessrules',
+                'strategy_filter_day', 'strategy_filter_level_off', 'strategy_filter_time')]
+Data$user_id <- as.numeric(as.factor(Data$user_id))
+names(Data) <- c('subject', 'trial', 'subtask', 'y', 'strategy_filter_level', 'strategy_questions_irrelevant_unique_mean', 'strategy_accessrules', 
+                 'strategy_filter_day', 'strategy_filter_level_off', 'strategy_filter_time')
+
+# dummy code
+unique(Data$subtask)
+Data$subtask_1 <- as.numeric(Data$subtask == 'informationgathering')
+Data$subtask_2 <- as.numeric(Data$subtask == 'filtering')
+Data$subtask_3 <- as.numeric(Data$subtask == 'timetableuse')
+Data$subtask_index <- Data$subtask_1 + 2 * Data$subtask_2 + 3 * Data$subtask_3
+
+#             IG    FI     TT
+# subtask_1   1     0      0
+# subtask_2   0     1      0
+# subtask_3   0     0      1
+
+N <- length(unique(Data$subject))
+
+# Convert data to input format required by JAGS
+jagsdata <- list(subject=Data$subject, trial=Data$trial, 
+                 subtask_1=Data$subtask_1, subtask_2=Data$subtask_2, subtask_3=Data$subtask_3,
+                 strategy_filter_level=Data$strategy_filter_level,
+                 strategy_questions_irrelevant_unique_mean=Data$strategy_questions_irrelevant_unique_mean,
+                 strategy_accessrules=Data$strategy_accessrules,
+                 strategy_filter_day = Data$strategy_filter_day , 
+                 strategy_filter_level_off = Data$strategy_filter_level_off, 
+                 strategy_filter_time = Data$strategy_filter_time,
+                 subtask_index=Data$subtask_index,
+                 y=Data$y, N=N)
+jagsdata$X <- with(jagsdata, cbind(strategy_filter_level, strategy_questions_irrelevant_unique_mean, strategy_accessrules,
+                                   strategy_filter_time, strategy_filter_level_off, strategy_filter_day))
+
+
+analysis <- "standard"
+if (analysis == "ultraquick")
+     settings <- list(n.chains= 2,  n.adapt= 50, burnin = 5, n.iter= 10, thin=1)
+if (analysis == "quick")
+     settings <- list(n.chains= 4,  n.adapt= 100, burnin = 50, n.iter= 100, thin=1)
+if (analysis == "publication")
+    settings <- list(n.chains= 4,  n.adapt= 1000, burnin = 2000, n.iter= 25000, thin=1)
+if (analysis == "standard")
+    settings <- list(n.chains= 4,  n.adapt= 200, burnin = 1000, n.iter= 1000, thin=1)
+
+model_fits <- list()
+source('jags//jags_subtasks.r')
+```
+
+
+```{r}
+# s: subtasks
+# p or e: power versus exponential
+# tu tc: theta2 unconstrained / constrained
+# gu gc: gamma unconstrained / constrained
+# st sf: strategies true/ strategies false
+
+model_grid <-  expand.grid(f=c('power3', 'exp3'), theta2_constraint=c(TRUE, FALSE),  
+                           gamma_constraint=c(TRUE, FALSE), strategy_predictors=c(TRUE, FALSE),
+                           stringsAsFactors=FALSE)
+model_grid$name <- paste(
+    sapply(model_grid$f, switch, power3='p3', exp3='e3'),
+    ifelse(model_grid$theta2_constraint, 'tc', 'tu'),
+    ifelse(model_grid$gamma_constraint, 'gc', 'gu'),
+    ifelse(model_grid$strategy_predictors, 'st', 'sf'), 
+    sep="_")
+
+model_fits <- list()
+for (i in seq(nrow(model_grid))) {
+    cat(i)
+    script <- jags_subtasks(f=model_grid$f[i], theta2_constraint=model_grid$theta2_constraint[i], 
+                            gamma_constraint=model_grid$gamma_constraint[i], strategy_predictors=model_grid$strategy_predictors[i])
+    model_fits[[ model_grid$name[i] ]] <- run_jags(script$script, jagsdata,  script$parameters, dic.run=TRUE)
+}
+
+
+# dic
+dics <-sapply(model_fits, function(X) get_dic(X$dic))
+model_grid <- cbind(model_grid,  t(dics))
+model_grid$result <-  with(model_grid, paste0(round(penalised_deviance, 0), " (",round(penalty, 0), ", ", round(deviance, 0), ")"))
+model_grid$order <- order(model_grid$strategy_predictors, model_grid$f, model_grid$gamma_constraint, model_grid$theta2_constraint)
+subtask_dic <- model_grid[model_grid$order, c('name', 'strategy_predictors', 'result')] 
+subtask_dic <- cbind(subtask_dic[ subtask_dic$strategy_predictors == FALSE, c('name', 'result')], 
+                    subtask_dic[ subtask_dic$strategy_predictors == TRUE, c('result')])
+names(subtask_dic) <- c('model', 'no_strategy', 'strategy')
+
+write.csv(model_grid, 'graphs/overall_subtasks_dics.csv', na="")
+write.csv(subtask_dic, 'graphs/summary_subtasks_dics.csv', na="")
+
+# test particular model
+# script <- jags_subtasks(f='power3', theta2_constraint=FALSE, gamma_constraint=FALSE,strategy_predictors=FALSE)
+# model_fits$s <-run_jags(script$script, jagsdata,  script$parameters, dic.run=TRUE)
+
+
+# s3b DIC worse by about 100
+# model_fits$s3$dic
+# model_fits$s3e$dic
+# model_fits$s3b$dic
+# model_fits$s3b2$dic
+# 
+# # s3c DIC worse by about 500
+# model_fits$s3b$dic
+# model_fits$s3c$dic
+
+
+# p3_tu_gu_su
+# p3_tc_gc_su
+# main table
+subtasks_ptable <- create_parameter_table(
+    samples = list(
+        e3_tu_gu_sf=model_fits$e3_tu_gu_sf$samples, 
+        p3_tu_gu_sf=model_fits$p3_tu_gu_sf$samples, 
+                   p3_tc_gc_sf=model_fits$p3_tc_gc_sf$samples),
+        dics = list(
+            e3_tu_gu_sf=model_fits$e3_tu_gu_sf$dic, 
+            p3_tu_gu_sf=model_fits$p3_tu_gu_sf$dic, 
+            p3_tc_gc_sf=model_fits$p3_tc_gc_sf$dic),
+            parameter_order =  c(          
+                "theta1_1.mu", "theta1_2.mu", "theta1_3.mu",
+          "theta2_1.mu", "theta2_2.mu", "theta2_3.mu",
+          "theta3_1.mu", "theta3_2.mu", "theta3_3.mu",
+          "gamma.mu", "theta2.mu","sigma.mu",  
+          "theta1_1.sigma", "theta1_2.sigma", "theta1_3.sigma",
+          "theta2_1.sigma", "theta2_2.sigma", "theta2_3.sigma",
+          "theta3_1.sigma", "theta3_2.sigma", "theta3_3.sigma",
+          "gamma.sigma", "theta2.sigma","sigma.sigma"))
+
+write.csv(subtasks_ptable, 'graphs/subtasks_parameter_table.csv', na="")
+
+
+# strategy ptable
+# in both cases the constraints lead to worse fits
+betas <- expand.grid(a=1:6, b=1:3)
+betas <- betas[order(betas$a, betas$b), ]
+betas <- paste0('beta[',betas$a, ',', betas$b, ']')
+components_ptable <- create_parameter_table(
+    samples = list(p3_tu_gu_st=model_fits$p3_tu_gu_st$samples, 
+                   p3_tc_gc_st=model_fits$p3_tc_gc_st$samples),
+        dics = list(p3_tu_gu_st=model_fits$p3_tu_gu_st$dic, 
+                    p3_tc_gc_st=model_fits$p3_tc_gc_st$dic),
+            parameter_order =  c(          
+                "theta1_1.mu", "theta1_2.mu", "theta1_3.mu",
+          "theta2_1.mu", "theta2_2.mu", "theta2_3.mu",
+          "theta3_1.mu", "theta3_2.mu", "theta3_3.mu",
+          "gamma.mu", "theta2.mu","sigma.mu",  
+          "theta1_1.sigma", "theta1_2.sigma", "theta1_3.sigma",
+          "theta2_1.sigma", "theta2_2.sigma", "theta2_3.sigma",
+          "theta3_1.sigma", "theta3_2.sigma", "theta3_3.sigma",
+          "gamma.sigma", "theta2.sigma","sigma.sigma",
+                betas))
+
+write.csv(components_ptable, 'graphs/components_parameter_table.csv', na="")
+
+beta_summary <- summary(model_fits$p3_tu_gu_st$samples)$statistics[,'Mean']
+beta_summary <- beta_summary[grep('beta', names(beta_summary))]
+beta_summary <- matrix(beta_summary, ncol=3, byrow=TRUE)
+colnames(beta_summary) <- c('I', 'F', 'T')
+rownames(beta_summary) <- paste0('beta', 1:6)
+write.csv(beta_summary, 'graphs/beta_summary.csv', na="")
+
+
+# old code update with new names
+# plot(density(model_fits$s3$dic$penalty))
+# plot(density(model_fits$s3$dic$deviance))
+# round(sum(model_fits$s3$dic$deviance))
+# plot(density(exp(-model_fits$s3$dic$deviance/2)))
+# model_fits$s3$dic
+
+```
+
+
+
+# Components and strategies on subtasks
+```{r}
+# jagsdata$X <- with(jagsdata, cbind(strategy_filter_level, strategy_questions_irrelevant_unique_mean, strategy_accessrules,
+#                                    strategy_filter_time, strategy_filter_level_off, strategy_filter_day))
+# script <- jags_subtasks(f='power3', theta2_constraint=FALSE, gamma_constraint=FALSE,strategy_predictors=TRUE)
+# model_fits$sc3 <- run_jags(script$script,jagsdata,  script$parameters, dic.run=TRUE)
+# 
+# 
+# # jagsdata$X <- scale(jagsdata$X, scale=FALSE)[,]
+# # model_fits$sc3z <- run_jags('jags/sc3',jagsdata,  c('theta1_1.mu', 'theta1_2.mu', 'theta1_3.mu',
+# #                                                  'theta1_1.sigma', 'theta1_2.sigma', 'theta1_3.sigma',
+# #                                                  'theta2_1.mu', 'theta2_2.mu', 'theta2_3.mu',
+# #                                                  'theta2_1.sigma', 'theta2_2.sigma', 'theta2_3.sigma',
+# #                                                  'theta3_1.mu', 'theta3_2.mu', 'theta3_3.mu',
+# #                                                  'theta3_1.sigma', 'theta3_2.sigma', 'theta3_3.sigma',
+# #                                                  'sigma.mu', 'sigma.sigma', 'beta'), dic.run=TRUE)
+# # 
+# #  create_parameter_table(
+# #     samples = list(sc3=model_fits$sc3$samples, sc3z=model_fits$sc3z$samples),
+# #         dics = list(sc3=model_fits$sc3$dic, sc3z=model_fits$sc3z$dic),
+# #             parameter_order =  c(          
+# #                 "theta1_1.mu", "theta1_2.mu", "theta1_3.mu",
+# #           "theta2_1.mu", "theta2_2.mu", "theta2_3.mu",
+# #           "theta3_1.mu", "theta3_2.mu", "theta3_3.mu",
+# #           "sigma.mu",  
+# #           "theta1_1.sigma", "theta1_2.sigma", "theta1_3.sigma",
+# #           "theta2_1.sigma", "theta2_2.sigma", "theta2_3.sigma",
+# #           "theta3_1.sigma", "theta3_2.sigma", "theta3_3.sigma",
+# #           "sigma.sigma",
+# #                 betas))
+# 
+# 
+# script <- jags_subtasks(f='power3', theta2_constraint=FALSE, gamma_constraint=TRUE,strategy_predictors=TRUE)
+# model_fits$sc3b <- run_jags(script$script,jagsdata,  script$parameters, dic.run=TRUE)
+# 
+# # s3b DIC worse by about 100
+# model_fits$sc3$dic
+# model_fits$sc3b$dic
+# 
+# # theta2_k_i is held constant over subtasks
+# script <- jags_subtasks(f='power3', theta2_constraint=TRUE, gamma_constraint=TRUE,strategy_predictors=TRUE)
+# model_fits$sc3b <- run_jags(script$script,jagsdata,  script$parameters, dic.run=TRUE)
+# 
+# # s3c DIC worse by about 500
+# model_fits$sc3b$dic
+# model_fits$sc3c$dic
+```
+

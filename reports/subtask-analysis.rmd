@@ -1,0 +1,152 @@
+```{r prepare}
+library(ProjectTemplate); load.project()
+```
+
+# Subtask plots
+```{r}
+pdf('graphs/subtaskbyblock-group.pdf')
+rbs <- merge(rbs, meta.subtaskplot) # add meta data
+plot(rt~block, rbs, xlab = "Block", ylab="Subtask completion time (sec)", ylim=c(0, 28), las=1, pch=rbs$pch, col=rbs$col)
+axis(1, 1:15, 1:15)
+for (i in meta.subtaskplot$subtask) { 
+  rbs_sub <- rbs[rbs$subtask==i, ]
+  lines(rbs_sub$block, rbs_sub$rt, lty=rbs_sub$lty, col=rbs_sub$col)
+} 
+legend(7, 27, meta.subtaskplot$subtask, pch=meta.subtaskplot$pch, lty=meta.subtaskplot$lty, col=meta.subtaskplot$col)
+dev.off()
+```
+
+```{r}
+### individual subtask plot
+pdf('graphs/subtaskbyblock-individual.pdf')
+ribs <- merge(ribs, meta.subtaskplot) # add meta data
+ribs <- ribs[order(ribs$user_id, ribs$block, ribs$subtask), ]
+xyplot(rt~block|factor(user_id), ribs, groups=subtask, xlab = "Block", type='b', 
+       ylab="Subtask completion time (sec)", ylim = c(-5, 28), 
+       col= ribs$col, pch=ribs$pch, lty=ribs$lty)
+dev.off()
+
+### consider also including a graph of proportion time spent per subtask over individual and block
+ribs <- merge(ribs, meta.subtaskplot) # add meta data
+temp_rib <- rib[,c('user_id', 'block', 'rt')]
+names(temp_rib) <- c('user_id_', 'block', 'overall_rt')
+ribs$user_id_block <- paste0(ribs$user_id, '.', ribs$block)
+temp_rib$user_id_block <- paste0(temp_rib$user_id, '.', temp_rib$block)
+temp_rib <- temp_rib[,c('user_id_block', 'overall_rt')]
+ribs <- merge(ribs,  temp_rib)
+ribs$rt_prop <- ribs$rt / ribs$overall_rt 
+ribs <- ribs[order(ribs$user_id, ribs$block, ribs$subtask), ]
+xyplot(rt_prop~block|factor(user_id), ribs, groups=subtask, xlab = "Block", type='b', 
+       ylab="Subtask completion time (proportion of total)", ylim = c(-0.1,1.1), 
+       col= ribs$col, pch=ribs$pch, lty=ribs$lty)
+
+```
+
+
+```{r}
+# information gathering group
+pdf('graphs/information-gatheringbyblock-group.pdf')
+v$information_gathering <- meta.componentplot$component[meta.componentplot$type == "information_gathering"]
+v$filtering <- meta.componentplot$component[meta.componentplot$type == "filtering"]
+v$components <- c(v$information_gathering, v$filtering)
+
+# create data
+ribc <- reshape(rib[,c('user_id', 'block', v$components)], varying=v$components, v.names='score', times=v$components,
+        direction='long')
+row.names(ribc) <- seq(nrow(ribc))
+ribc$id <- NULL
+names(ribc) <- c('user_id', 'block', 'component', 'score')
+ribc <- ribc[order(ribc$user_id, ribc$component, ribc$block), ]
+
+rbc <- aggregate(ribc$score, list(component=ribc$component, block=ribc$block), mean)
+names(rbc) <- c('component', 'block', 'score')
+
+## filtering group
+rbc <- merge(rbc, meta.componentplot)
+rbc <- rbc[order(rbc$component, rbc$block), ]
+
+group_component_plot <- function(rbctype = 'information_gathering', legend_x=6, legend_y=1) {
+    rbc_ig <- rbc[ rbc$type == rbctype, ]
+    plot(score~block, rbc_ig,  xlab = "Block", ylab="Component usage (proportion of trials)", ylim=c(0, 1), las=1, pch=rbc_ig$pch, col=rbc_ig$col)
+    axis(1, 1:15, 1:15)
+    for (i in v[[rbctype]]) {
+      rbc_ig_sub <- rbc_ig[ rbc_ig$component ==i, ]
+      lines(rbc_ig_sub$block, rbc_ig_sub$score, lty=rbc_ig_sub$lty, col=rbc_ig_sub$col)
+    }           
+    with(meta.componentplot[meta.componentplot$component %in% v[[rbctype]], ], 
+         legend(legend_x, legend_y, legend=label, pch=pch, lty=lty, col=col))
+}
+    
+    
+pdf('graphs/informationgatheringbyblock-group.pdf')
+group_component_plot(rbctype='information_gathering', legend_x=6, legend_y=1)
+dev.off()
+
+pdf('graphs/filteringbyblock-group.pdf')
+group_component_plot(rbctype='filtering', legend_x=6, legend_y=.25)
+dev.off()
+
+
+# information gathering individual
+ribc <- merge(ribc, meta.componentplot, sort=FALSE)
+ribc <- ribc[order(ribc$user_id, ribc$block, ribc$order), ]
+
+pdf('graphs/informationgatheringbyblock-individual.pdf')
+ribc_ig <- ribc[ ribc$type == 'information_gathering', ]
+xyplot(score~block|factor(user_id), ribc_ig, groups=label, xlab = "Block", type='b', ylab="Component usage (proportion of trials)", 
+       ylim = c(-.1,1.1),  col= ribc_ig$col, pch=ribc_ig$pch, lty=ribc_ig$lty)
+dev.off()
+
+pdf('graphs/filteringbyblock-individual.pdf')
+ribc_ig <- ribc[ ribc$type == 'filtering', ]
+xyplot(score~block|factor(user_id), ribc_ig, groups=order, xlab = "Block", type='b', ylab="Component usage (proportion of trials)", 
+       ylim = c(-.1,1.1),  col= ribc_ig$col, pch=ribc_ig$pch, lty=ribc_ig$lty)
+dev.off()
+
+```
+
+
+# block level analysis
+```{r}
+xyplot(rt ~ block | user_id, rib, ylim=c(0, 80), main='rt')
+
+### strategies
+for (i in v$strategies) {
+    FORMULA <- as.formula(paste(i, '~ block | user_id'))
+    print(xyplot(FORMULA, rib, main =i))
+}
+
+xyplot(rt + (strategy_filter_level*20) ~ block | user_id, ribs[ribs$subtask == 'timetableuse', ], main ='strategy_filter_level')
+xyplot(rt + (strategy_filter_level*20) ~ block | user_id, ribs[ribs$subtask == 'filtering', ], main ='strategy_filter_level')
+xyplot(rt + (strategy_filter_level*20) ~ block | user_id, ribs[ribs$subtask == 'informationgathering', ], main ='strategy_filter_level')
+```
+
+
+# Subtask analysis
+## Description and plot
+```{r}
+xyplot(rt ~ block | user_id, group=subtask, ribs[order(ribs$block),], ylim=c(-1, 20), type='l')
+
+xyplot(rt ~ block, group=subtask, rbs, ylim=c(0, 20), type='l')
+```
+
+
+## Consistency Analysis
+```{r}
+ca  <- list()
+
+# individuals with all subtasks provided
+allsubtask_ids <-  names(table(ribs$user_id)[table(ribs$user_id) == 45])
+ca$individual <- sapply(allsubtask_ids, function(X)  
+    subtask_consistency_loess('rt','block' , 'subtask', ribs[ ribs$user_id == X, ]))
+
+plot(density(ca$individual), xlim=c(-1,1))
+abline(v=c(-.5, 0,.5))
+
+
+# aggregate all individuals
+subtask_consistency_loess('rt','block' , 'subtask', rbs)
+round(cbind(sort(ca$individual)), 2)
+```
+
+

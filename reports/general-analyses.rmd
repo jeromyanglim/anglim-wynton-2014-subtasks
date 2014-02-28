@@ -1,0 +1,16 @@
+```{r}
+library(ProjectTemplate); load.project()
+```
+
+
+```{r}
+sum(rrit$rt > 100)
+round(mean(rrit$rt > 100) * 100, 1)
+
+table(rcases$gender)
+prop.table(table(rcases$gender))
+
+Hmisc::describe(rcases)
+```
+
+

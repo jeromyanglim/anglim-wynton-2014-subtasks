@@ -1,0 +1,69 @@
+model{
+    # Model
+    for (i in 1:length(y)) {
+        mu[i] <- subtask_1[i] * (theta1_1[subject[i]] * exp(theta2_1[subject[i]] * (trial[i] - 1)) + theta3_1[subject[i]]) +
+                 subtask_2[i] * (theta1_2[subject[i]] * exp(theta2_2[subject[i]] * (trial[i] - 1)) + theta3_2[subject[i]]) +
+                 subtask_3[i] * (theta1_3[subject[i]] * exp(theta2_3[subject[i]] * (trial[i] -1 )) + theta3_3[subject[i]])            
+        y[i]  ~ dnorm(mu[i], tau[subject[i]])
+    }
+
+    # Random coefficients
+    for (i in 1:N) {    
+        theta1_1[i] ~ dnorm(theta1_1.mu, theta1_1.tau)
+        theta1_2[i] ~ dnorm(theta1_2.mu, theta1_2.tau)
+        theta1_3[i] ~ dnorm(theta1_3.mu, theta1_3.tau)
+
+        theta2_1[i] ~ dnorm(theta2_1.mu, theta2_1.tau)
+        theta2_2[i] ~ dnorm(theta2_2.mu, theta2_2.tau)
+        theta2_3[i] ~ dnorm(theta2_3.mu, theta2_3.tau)
+
+        theta3_1[i] ~ dnorm(theta3_1.mu, theta3_1.tau)
+        theta3_2[i] ~ dnorm(theta3_2.mu, theta3_2.tau)
+        theta3_3[i] ~ dnorm(theta3_3.mu, theta3_3.tau)
+        
+        sigma[i] ~ dnorm(sigma.mu, sigma.tau)T(0, 100)
+        tau[i] <- 1/(sigma[i]^2)
+
+    }
+
+    # Priors
+    theta1_1.mu  ~ dunif(0, 100)
+    theta1_2.mu   ~dunif(0, 100)
+    theta1_3.mu   ~ dunif(0, 100)
+    theta1_1.sigma ~ dunif(0, 100)
+    theta1_2.sigma ~ dunif(0, 100)
+    theta1_3.sigma ~ dunif(0, 100)
+
+    theta2_1.mu  ~ dunif(-1, 0)
+    theta2_2.mu   ~ dunif(-1, 0)
+    theta2_3.mu   ~ dunif(-1, 0)
+    theta2_1.sigma ~ dunif(0, 2)
+    theta2_2.sigma ~ dunif(0, 2)
+    theta2_3.sigma ~ dunif(0, 2)
+
+    theta3_1.mu  ~ dunif(0, 100)
+    theta3_2.mu   ~ dunif(0, 100)
+    theta3_3.mu   ~ dunif(0, 100)
+    theta3_1.sigma ~ dunif(0, 100)
+    theta3_2.sigma ~ dunif(0, 100)
+    theta3_3.sigma ~ dunif(0, 100)
+
+    sigma.mu ~ dunif(0, 10)
+    sigma.sigma ~ dunif(0, 10)
+    
+    # Transformations
+    theta1_1.tau  <- 1.0/(theta1_1.sigma^2);
+    theta1_2.tau  <- 1.0/(theta1_2.sigma^2);
+    theta1_3.tau  <- 1.0/(theta1_3.sigma^2);
+
+    theta2_1.tau  <- 1.0/(theta2_1.sigma^2);
+    theta2_2.tau  <- 1.0/(theta2_2.sigma^2);
+    theta2_3.tau  <- 1.0/(theta2_3.sigma^2);
+
+    theta3_1.tau  <- 1.0/(theta3_1.sigma^2);
+    theta3_2.tau  <- 1.0/(theta3_2.sigma^2);
+    theta3_3.tau  <- 1.0/(theta3_3.sigma^2);
+
+    sigma.tau <- 1/ (sigma.sigma^2)
+
+}

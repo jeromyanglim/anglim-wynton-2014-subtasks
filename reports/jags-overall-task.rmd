@@ -1,0 +1,67 @@
+This set of analyses to examine the relationship predicting response time from trial time.
+
+
+# Set up data
+```{r message=FALSE}
+library(ProjectTemplate); load.project()
+set.seed(1234)
+Data <- rib[,c('user_id', 'block', 'rt')]
+Data$user_id <- as.numeric(as.factor(Data$user_id))
+names(Data) <- c('subject', 'trial', 'y')
+N <- length(unique( Data$subject))
+
+# Convert data to input format required by JAGS
+jagsdata_overall <- list(subject=Data$subject, trial=Data$trial, y=Data$y, N=nrow(Data))
+
+analysis <- "standard"
+if (analysis == "quick")
+     settings <- list(n.chains= 4,  n.adapt= 100, burnin = 50, n.iter= 100, thin=1)
+if (analysis == "publication")
+    settings <- list(n.chains= 4,  n.adapt= 1000, burnin = 2000, n.iter= 25000, thin=1)
+if (analysis == "standard")
+    settings <- list(n.chains= 4,  n.adapt= 200, burnin = 1000, n.iter= 2000, thin=1)
+
+
+m <- list()
+models_overall <- list()
+```
+
+
+
+# final jags analysis
+```{r}
+# 2 power
+
+models_overall$mf1 <- run_jags(jags_overall(f='power2'),
+                               jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+                                              'theta2.mu', 'theta2.sigma' ,
+                                               'sigma.mu', 'sigma.sigma'), dic.run=TRUE)
+
+# 3 power
+models_overall$mf2 <- run_jags(jags_overall(f='power3'),jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+                                              'theta2.mu', 'theta2.sigma' ,
+                                              'theta3.mu', 'theta3.sigma', 
+                                               'sigma.mu', 'sigma.sigma'), dic.run=TRUE)
+
+# 3 exponential
+models_overall$mf3 <- run_jags(jags_overall(f='exp3'),jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+                                              'theta2.mu', 'theta2.sigma' ,
+                                              'theta3.mu', 'theta3.sigma', 
+                                               'sigma.mu', 'sigma.sigma'), dic.run=TRUE)
+
+
+diffdic(models_overall$mf1$dic, models_overall$mf2$dic)
+sum(models_overall$mf1$dic$deviance)
+models_overall$mf2$dic
+models_overall$mf3$dic
+
+overall_ptable <- create_parameter_table(
+    samples = list(mf1=models_overall$mf1$samples, mf2=models_overall$mf2$samples, 
+                mf3=models_overall$mf3$samples),
+        dics = list(mf1= models_overall$mf1$dic , mf2=models_overall$mf2$dic, 
+                mf3=models_overall$mf3$dic),
+            parameter_order = c('theta1.mu', 'theta2.mu', 'theta3.mu', 'sigma.mu', 
+  'theta1.sigma', 'theta2.sigma', 'theta3.sigma', 'sigma.sigma') )
+
+write.csv(overall_ptable, 'graphs/overall_parameter_table.csv', na="")
+```
