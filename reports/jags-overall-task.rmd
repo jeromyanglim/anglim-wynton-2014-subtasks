@@ -24,6 +24,7 @@ if (analysis == "standard")
 
 m <- list()
 models_overall <- list()
+source('jags//jags_overall.r')
 ```
 
 
