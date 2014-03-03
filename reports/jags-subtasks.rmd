@@ -96,6 +96,14 @@ write.csv(subtask_dic, 'graphs/summary_subtasks_dics.csv', na="")
 # script <- jags_subtasks(f='power3', theta2_constraint=FALSE, gamma_constraint=FALSE,strategy_predictors=FALSE)
 # model_fits$s <-run_jags(script$script, jagsdata,  script$parameters, dic.run=TRUE)
 
+# examine subtask correlations
+script <- jags_subtasks(f='power3', theta2_constraint=FALSE,gamma_constraint=FALSE, strategy_predictors=FALSE)
+subcor <- run_jags(script$script, jagsdata,  c('theta1_1', 'theta2_1', 'theta3_1'), dic.run=FALSE)
+subcor$samples
+
+grep('theta', script$parameters, value=TRUE)
+cat(script$script)
+
 
 # s3b DIC worse by about 100
 # model_fits$s3$dic

@@ -32,7 +32,6 @@ source('jags//jags_overall.r')
 # final jags analysis
 ```{r}
 # 2 power
-
 models_overall$mf1 <- run_jags(jags_overall(f='power2'),
                                jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
                                               'theta2.mu', 'theta2.sigma' ,

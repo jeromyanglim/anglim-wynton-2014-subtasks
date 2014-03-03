@@ -3,3 +3,4 @@
 .RData
 jags/archive
 cache
+.DS_Store
