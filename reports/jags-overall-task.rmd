@@ -13,7 +13,7 @@ N <- length(unique( Data$subject))
 # Convert data to input format required by JAGS
 jagsdata_overall <- list(subject=Data$subject, trial=Data$trial, y=Data$y, N=nrow(Data))
 
-analysis <- "standard"
+analysis <- "publication"
 if (analysis == "quick")
      settings <- list(n.chains= 4,  n.adapt= 100, burnin = 50, n.iter= 100, thin=1)
 if (analysis == "publication")

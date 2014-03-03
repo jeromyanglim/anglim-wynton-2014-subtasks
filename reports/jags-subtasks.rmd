@@ -96,13 +96,13 @@ write.csv(subtask_dic, 'graphs/summary_subtasks_dics.csv', na="")
 # script <- jags_subtasks(f='power3', theta2_constraint=FALSE, gamma_constraint=FALSE,strategy_predictors=FALSE)
 # model_fits$s <-run_jags(script$script, jagsdata,  script$parameters, dic.run=TRUE)
 
-# examine subtask correlations
-script <- jags_subtasks(f='power3', theta2_constraint=FALSE,gamma_constraint=FALSE, strategy_predictors=FALSE)
-subcor <- run_jags(script$script, jagsdata,  c('theta1_1', 'theta2_1', 'theta3_1'), dic.run=FALSE)
-subcor$samples
-
-grep('theta', script$parameters, value=TRUE)
-cat(script$script)
+# # examine subtask correlations
+# script <- jags_subtasks(f='power3', theta2_constraint=FALSE,gamma_constraint=FALSE, strategy_predictors=FALSE)
+# subcor <- run_jags(script$script, jagsdata,  c('theta1_1', 'theta2_1', 'theta3_1'), dic.run=FALSE)
+# subcor$samples
+# 
+# grep('theta', script$parameters, value=TRUE)
+# cat(script$script)
 
 
 # s3b DIC worse by about 100
@@ -178,56 +178,5 @@ write.csv(beta_summary, 'graphs/beta_summary.csv', na="")
 # round(sum(model_fits$s3$dic$deviance))
 # plot(density(exp(-model_fits$s3$dic$deviance/2)))
 # model_fits$s3$dic
-
-```
-
-
-
-# Components and strategies on subtasks
-```{r}
-# jagsdata$X <- with(jagsdata, cbind(strategy_filter_level, strategy_questions_irrelevant_unique_mean, strategy_accessrules,
-#                                    strategy_filter_time, strategy_filter_level_off, strategy_filter_day))
-# script <- jags_subtasks(f='power3', theta2_constraint=FALSE, gamma_constraint=FALSE,strategy_predictors=TRUE)
-# model_fits$sc3 <- run_jags(script$script,jagsdata,  script$parameters, dic.run=TRUE)
-# 
-# 
-# # jagsdata$X <- scale(jagsdata$X, scale=FALSE)[,]
-# # model_fits$sc3z <- run_jags('jags/sc3',jagsdata,  c('theta1_1.mu', 'theta1_2.mu', 'theta1_3.mu',
-# #                                                  'theta1_1.sigma', 'theta1_2.sigma', 'theta1_3.sigma',
-# #                                                  'theta2_1.mu', 'theta2_2.mu', 'theta2_3.mu',
-# #                                                  'theta2_1.sigma', 'theta2_2.sigma', 'theta2_3.sigma',
-# #                                                  'theta3_1.mu', 'theta3_2.mu', 'theta3_3.mu',
-# #                                                  'theta3_1.sigma', 'theta3_2.sigma', 'theta3_3.sigma',
-# #                                                  'sigma.mu', 'sigma.sigma', 'beta'), dic.run=TRUE)
-# # 
-# #  create_parameter_table(
-# #     samples = list(sc3=model_fits$sc3$samples, sc3z=model_fits$sc3z$samples),
-# #         dics = list(sc3=model_fits$sc3$dic, sc3z=model_fits$sc3z$dic),
-# #             parameter_order =  c(          
-# #                 "theta1_1.mu", "theta1_2.mu", "theta1_3.mu",
-# #           "theta2_1.mu", "theta2_2.mu", "theta2_3.mu",
-# #           "theta3_1.mu", "theta3_2.mu", "theta3_3.mu",
-# #           "sigma.mu",  
-# #           "theta1_1.sigma", "theta1_2.sigma", "theta1_3.sigma",
-# #           "theta2_1.sigma", "theta2_2.sigma", "theta2_3.sigma",
-# #           "theta3_1.sigma", "theta3_2.sigma", "theta3_3.sigma",
-# #           "sigma.sigma",
-# #                 betas))
-# 
-# 
-# script <- jags_subtasks(f='power3', theta2_constraint=FALSE, gamma_constraint=TRUE,strategy_predictors=TRUE)
-# model_fits$sc3b <- run_jags(script$script,jagsdata,  script$parameters, dic.run=TRUE)
-# 
-# # s3b DIC worse by about 100
-# model_fits$sc3$dic
-# model_fits$sc3b$dic
-# 
-# # theta2_k_i is held constant over subtasks
-# script <- jags_subtasks(f='power3', theta2_constraint=TRUE, gamma_constraint=TRUE,strategy_predictors=TRUE)
-# model_fits$sc3b <- run_jags(script$script,jagsdata,  script$parameters, dic.run=TRUE)
-# 
-# # s3c DIC worse by about 500
-# model_fits$sc3b$dic
-# model_fits$sc3c$dic
 ```
 
