@@ -11,6 +11,15 @@ table(rcases$gender)
 prop.table(table(rcases$gender))
 
 Hmisc::describe(rcases)
+
+head(rib)
+
+plot(density(rib[rib$block == 1, 'rt']))
+
+for(i in 1:15) {
+    print(i)
+    print(describe(rib[rib$block == i, 'rt']))
+}
 ```
 
 

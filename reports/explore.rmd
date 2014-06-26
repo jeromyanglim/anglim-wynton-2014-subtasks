@@ -1,0 +1,24 @@
+```{r}
+library(ProjectTemplate); load.project()
+```
+
+
+```{r}
+
+# in R
+# shape is alpha
+# rate is beta
+par_mu <- 1.07
+par_sigma <- .7
+par_shape <- par_mu^2/par_sigma^2
+par_rate <- par_mu/par_sigma^2
+
+par_shape <- 1 #alpha
+par_rate <- 0.5 #beta
+x <- rgamma(10000, shape=par_shape, rate=par_rate)
+par_shape/par_rate # mean
+par_shape/par_rate^2 # variance
+sqrt(par_shape)/par_rate # variance
+mean(x); var(x);sd(x)
+hist(x, breaks=100)
+```

@@ -1,6 +1,22 @@
+analysis_settings <- function(analysis='standard') {
+    # settings <- analysis_settings('quick') 
+    # i.e., always assign to variable called settings
+    if (analysis == "ultraquick")
+        settings <- list(n.chains= 2,  n.adapt= 50, burnin = 5, n.iter= 10, thin=1)
+    if (analysis == "quick")
+        settings <- list(n.chains= 4,  n.adapt= 100, burnin = 50, n.iter= 100, thin=1)
+    if (analysis == "publication")
+        settings <- list(n.chains= 4,  n.adapt= 1000, burnin = 2000, n.iter= 25000, thin=1)
+    if (analysis == "standard")
+        settings <- list(n.chains= 4,  n.adapt= 200, burnin = 1000, n.iter= 1000, thin=1)
+    if (analysis == "medium")
+        settings <- list(n.chains= 2,  n.adapt= 200, burnin = 500, n.iter= 1000, thin=1)
+    settings
+}
+
 run_jags <- function(script, data, variable.names, dic.run=FALSE,
                      n.chains=settings$n.chains, n.adapt=settings$n.adapt, burnin=settings$burnin, 
-                     n.iter=settings$n.iter, thin=settings$thin, dic.type='pD') {  
+                     n.iter=settings$n.iter, thin=settings$thin, dic.type='pD', showplots=TRUE) {  
     # if script is file name, then import as file name
     if(file.exists(script))  script <-  paste( readLines(script, warn=FALSE) , collapse="\n")
     cat('jags.model: \n')
@@ -10,7 +26,9 @@ run_jags <- function(script, data, variable.names, dic.run=FALSE,
     cat('coda.samples: \n')
     samples <- coda.samples(model=mod, n.iter=n.iter, thin=thin, variable.names=variable.names)
     
-    plot(samples, cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5)
+    if (showplots) {
+        plot(samples, cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5)
+    }
     print(summary(samples))
     
     cat('dic.samples: \n')
@@ -50,27 +68,26 @@ simulate_many <- function(thetas, FUN) {
     lapply(seq(nrow(thetas)), function(X)  FUN(thetas[X, ]))
 }
 
-calculate_statistics <- function(simulations, dataset=Data) {
-    stats <- function (x) {
-        # x: single dataset
-        x$w <- as.logical(x$w)
-        list(cor = cor(x$y_d, x$y_a), 
-             mean_y_d = mean(x$y_d), 
-             mean_y_a = mean(x$y_a), 
-             sd_y_d = sd(x$y_d),
-             sd_y_a = sd(x$y_a),
-             y_a_gt_y_d = mean(x$y_a > x$y_d),
-             y_a_lt0.5sd_y_d = mean(x$y_a < (x$y_d - 0.5 * sd(x$y_d))),
-             y_a_gt0.5sd_y_d = mean(x$y_a > (x$y_d + 0.5 * sd(x$y_d))),
-             y_a_gt1sd_y_d = mean(x$y_a > (x$y_d + 1 * sd(x$y_d))),
-             u_diff_minus_w_diff =  mean(x$y_a[!x$w] - x$y_d[!x$w]) -
-                 mean(x$y_a[x$w] - x$y_d[x$w]) 
-        )
-    }
-    simulations_stats <- sapply(simulations, stats)
-    dataset_stats <- stats(Data)
-    list(simulations=simulations_stats, dataset=dataset_stats)
-}
+# calculate_statistics <- function(simulations, dataset=Data) {
+#     stats <- function (x) {
+#         x$w <- as.logical(x$w)
+#         list(cor = cor(x$y_d, x$y_a), 
+#              mean_y_d = mean(x$y_d), 
+#              mean_y_a = mean(x$y_a), 
+#              sd_y_d = sd(x$y_d),
+#              sd_y_a = sd(x$y_a),
+#              y_a_gt_y_d = mean(x$y_a > x$y_d),
+#              y_a_lt0.5sd_y_d = mean(x$y_a < (x$y_d - 0.5 * sd(x$y_d))),
+#              y_a_gt0.5sd_y_d = mean(x$y_a > (x$y_d + 0.5 * sd(x$y_d))),
+#              y_a_gt1sd_y_d = mean(x$y_a > (x$y_d + 1 * sd(x$y_d))),
+#              u_diff_minus_w_diff =  mean(x$y_a[!x$w] - x$y_d[!x$w]) -
+#                  mean(x$y_a[x$w] - x$y_d[x$w]) 
+#         )
+#     }
+#     simulations_stats <- sapply(simulations, stats)
+#     dataset_stats <- stats(Data)
+#     list(simulations=simulations_stats, dataset=dataset_stats)
+# }
 
 summarise_statistics <- function(x) {
     # x: object returned from calculate statistics
@@ -129,4 +146,9 @@ create_parameter_table <- function(samples, dics, parameter_order) {
     dic_table <- cbind(parameter=row.names(dic_table), dic_table)
     
     rbind(parameter_table, dic_table)
+}
+
+line_num_cat <- function(x){
+    tmp <- unlist(strsplit(x, "\n"))
+    cat(paste0(seq_len(length(tmp)), ": ", tmp, collapse = "\n"), "\n")
 }

@@ -3,18 +3,6 @@ library(ProjectTemplate); load.project()
 ```
 
 # Subtask plots
-```{r}
-pdf('graphs/subtaskbyblock-group.pdf')
-rbs <- merge(rbs, meta.subtaskplot) # add meta data
-plot(rt~block, rbs, xlab = "Block", ylab="Subtask completion time (sec)", ylim=c(0, 28), las=1, pch=rbs$pch, col=rbs$col)
-axis(1, 1:15, 1:15)
-for (i in meta.subtaskplot$subtask) { 
-  rbs_sub <- rbs[rbs$subtask==i, ]
-  lines(rbs_sub$block, rbs_sub$rt, lty=rbs_sub$lty, col=rbs_sub$col)
-} 
-legend(7, 27, meta.subtaskplot$subtask, pch=meta.subtaskplot$pch, lty=meta.subtaskplot$lty, col=meta.subtaskplot$col)
-dev.off()
-```
 
 ```{r}
 ### individual subtask plot

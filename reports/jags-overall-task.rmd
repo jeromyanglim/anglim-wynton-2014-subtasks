@@ -12,56 +12,131 @@ N <- length(unique( Data$subject))
 
 # Convert data to input format required by JAGS
 jagsdata_overall <- list(subject=Data$subject, trial=Data$trial, y=Data$y, N=nrow(Data))
-
-analysis <- "publication"
-if (analysis == "quick")
-     settings <- list(n.chains= 4,  n.adapt= 100, burnin = 50, n.iter= 100, thin=1)
-if (analysis == "publication")
-    settings <- list(n.chains= 4,  n.adapt= 1000, burnin = 2000, n.iter= 25000, thin=1)
-if (analysis == "standard")
-    settings <- list(n.chains= 4,  n.adapt= 200, burnin = 1000, n.iter= 2000, thin=1)
-
+settings <- analysis_settings("quick")
 
 m <- list()
 models_overall <- list()
-source('jags//jags_overall.r')
+source('jags//jags_overall-2.r')
 ```
 
 
 
 # final jags analysis
 ```{r}
-# 2 power
-models_overall$mf1 <- run_jags(jags_overall(f='power2'),
-                               jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
-                                              'theta2.mu', 'theta2.sigma' ,
-                                               'sigma.mu', 'sigma.sigma'), dic.run=TRUE)
+source('jags/jags_overall-2.r')
+# # 2 power
+# models_overall$mf1 <- run_jags(jags_overall(f='power2'),
+#                                jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+#                                               'theta2.mu', 'theta2.sigma' ,
+#                                                'sigma.mu', 'sigma.sigma'), dic.run=TRUE)
 
 # 3 power
-models_overall$mf2 <- run_jags(jags_overall(f='power3'),jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+models_overall$power3 <- run_jags(jags_overall_gamma(f='power3'),jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
                                               'theta2.mu', 'theta2.sigma' ,
                                               'theta3.mu', 'theta3.sigma', 
                                                'sigma.mu', 'sigma.sigma'), dic.run=TRUE)
 
 # 3 exponential
-models_overall$mf3 <- run_jags(jags_overall(f='exp3'),jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+models_overall$exp3 <- run_jags(jags_overall_gamma(f='exp3'),jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
                                               'theta2.mu', 'theta2.sigma' ,
                                               'theta3.mu', 'theta3.sigma', 
                                                'sigma.mu', 'sigma.sigma'), dic.run=TRUE)
 
 
-diffdic(models_overall$mf1$dic, models_overall$mf2$dic)
-sum(models_overall$mf1$dic$deviance)
-models_overall$mf2$dic
-models_overall$mf3$dic
+models_overall$power3$dic
+models_overall$exp3$dic
 
 overall_ptable <- create_parameter_table(
-    samples = list(mf1=models_overall$mf1$samples, mf2=models_overall$mf2$samples, 
-                mf3=models_overall$mf3$samples),
-        dics = list(mf1= models_overall$mf1$dic , mf2=models_overall$mf2$dic, 
-                mf3=models_overall$mf3$dic),
+    samples = list(power3=models_overall$power3$samples, 
+                exp3=models_overall$exp3$samples),
+        dics = list( power3=models_overall$power3$dic, 
+                exp3=models_overall$exp3$dic),
             parameter_order = c('theta1.mu', 'theta2.mu', 'theta3.mu', 'sigma.mu', 
   'theta1.sigma', 'theta2.sigma', 'theta3.sigma', 'sigma.sigma') )
 
 write.csv(overall_ptable, 'graphs/overall_parameter_table.csv', na="")
 ```
+
+
+# Revised analyses
+```{r}
+source('jags/jags_overall-2.r')
+
+models_overall$mf1 <- run_jags(jags_overall_gamma(f='power3'),jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+                                              'theta2.mu', 'theta2.sigma' ,
+                                              'theta3.mu', 'theta3.sigma', 
+                                               'sigma.mu', 'sigma.sigma'), dic.run=TRUE)
+
+models_overall$mf2 <- run_jags(jags_overall_gamma(f='exp3'),jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+                                              'theta2.mu', 'theta2.sigma' ,
+                                              'theta3.mu', 'theta3.sigma', 
+                                               'sigma.mu', 'sigma.sigma'), dic.run=TRUE)
+models_overall$mf2$dic
+```
+
+# Plotting of fits
+```{r fits_plot}
+source('jags/jags_overall-2.r')
+
+settings <- analysis_settings("standard")
+
+returnfits_overall <- function(f='power3') {
+    jags_object <- run_jags(jags_overall_gamma(f=f),jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+                                              'theta2.mu', 'theta2.sigma' ,
+                                              'theta3.mu', 'theta3.sigma', 
+                                               'sigma.mu', 'sigma.sigma', 'yhat'), dic.run=FALSE, showplots=FALSE)
+    fits_samples <- do.call(rbind, jags_object$samples)
+    fits_samples <- fits_samples[,  grep('yhat', colnames(fits_samples), value=TRUE)]
+    fits_means <- apply(fits_samples, 2, mean)
+    list(fits_means=fits_means, jagsdata_overall=jagsdata_overall)
+}
+    
+fits <- list() 
+fits$power <- returnfits_overall('power3')
+fits$exp <- returnfits_overall('exp3')
+
+# reassemble the dataframe
+yhatdata <- data.frame(subject=jagsdata_overall$subject, trial=jagsdata_overall$trial, yhat_power= fits$power$fits_means, 
+                       yhat_exp= fits$exp$fits_means, y=jagsdata_overall$y)
+
+yhat_group <- aggregate(yhatdata[, c('y', 'yhat_power', 'yhat_exp')], list(trial=yhatdata$trial), mean)
+
+extract_model_overall_yhat <- function(yhat_var='yhat_power', variables=c("trial", "y"), data=yhat_group) {
+    x <- data[,c(variables, yhat_var)]
+    names(x)[names(x) == yhat_var] <- 'yhat'
+    x$model <- yhat_var
+    x
+}
+yhatdata_split <- lapply(grep('yhat', names(yhat_group), value=TRUE), function(X) extract_model_overall_yhat(X))
+yhatdata_long <- do.call(rbind, yhatdata_split)
+yhatdata_long$Model <- yhatdata_long$model
+yhatdata_long$Model[yhatdata_long$model == "yhat_exp"] <- "Exponential"
+yhatdata_long$Model[yhatdata_long$model == "yhat_power"] <- "Power"
+head
+
+p <- ggplot(yhatdata_long, aes(trial, y), ) + geom_point() 
+p <- p + geom_line(aes(x=trial, y=yhat, linetype=Model))
+p <- p  + scale_y_continuous("Task completion time (sec)", limits=c(0, 50)) + 
+    scale_x_continuous("Block", breaks=1:15) 
+
+pdf(file="graphs/overallrtbyblockwithfits.pdf", width=6, height=4)
+p
+dev.off()
+
+lines(yhat_group$trial, yhat_group$yhat_power, lty=1)
+lines(yhat_group$trial, yhat_group$yhat_exp, lty=2)
+
+
+yhatdata <-yhatdata[order(yhatdata$trial), ]
+yhatdata2_1 <- cbind(yhatdata[, c('trial', 'subject', 'y')], value='y')
+yhatdata2_2 <- cbind(yhatdata[, c('trial', 'subject', 'yhat_power')] , value='yhat_power')
+yhatdata2_3 <- cbind(yhatdata[, c('trial', 'subject', 'yhat_exp')] , value='yhat_exp')
+names(yhatdata2_2)[names(yhatdata2_2) == 'yhat_power'] <- 'y'
+names(yhatdata2_3)[names(yhatdata2_3) == 'yhat_exp'] <- 'y'
+yhatdata2 <- rbind(yhatdata2_1, yhatdata2_2, yhatdata2_3)
+
+xyplot(y ~ trial | factor(subject), groups=value, yhatdata2, type=c('p', 'l', 'l'), 
+       lty=c(0, 1, 2), pch=c(".", "", ""),cex=6, col='black')
+
+```
+

@@ -11,3 +11,5 @@ subtask_consistency_loess <- function(dv, iv, subtask, data) {
     )
     
 }
+
+specify_decimal <- function(x, k) format(round(x, k), nsmall=k)
