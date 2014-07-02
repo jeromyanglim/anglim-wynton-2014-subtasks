@@ -173,14 +173,9 @@ save.image()
 
 ```{r model_recovery_pve}
 source('jags/jags_subtasks-2.r')
-x <- model_recovery_subtaskspve(10)
-
-
-x$fits[[1]]$dic$penalty
-
-# getAnywhere('print.dic')
-x$fits[[2]]$dic$penalty
-
+settings <- analysis_settings(analysis='standard')
+settings$n.chains <- 2
+x <- model_recovery_subtaskspve(20)
 
 # 
 results <-  x$design
@@ -201,25 +196,41 @@ fresults <- merge(fresults, fpower)
 fresults <- merge(fresults, fexp)
 fresults$dicdiff <- fresults$dic_power - fresults$dic_exp
 
+summarise_dic_diff <- function(x) {
+    list(
+        prop_better=mean(x > 0),
+        mean_dic_improvement=mean(x),
+        sd_dic_improvement=sd(x),
+        min_dic_improvement=min(x),
+        max_dic_improvement=max(x),
+        N = length(x)
+    )
+}
 
-boxplot(dicdiff ~ generator, fresults, ylim=c(-600, 600), ylab="DIC Power - DIC Exp (Pos means Exp is better)", 
-        xlab="Data Generating Process")
-abline(h=0)
+pve_dic_diff <- list()
+pve_dic_diff$exp <- summarise_dic_diff(fresults[fresults$generator=='exp', 'dicdiff'])
+pve_dic_diff$power <- summarise_dic_diff(-fresults[fresults$generator=='power', 'dicdiff'])
+
+write.csv(fresults, file='graphs/model_recovery_pve.csv')
+sink('graphs/model_recovery_pve.csv', append=TRUE)
+date()
+pve_dic_diff
+settings
+sink()
+
+
+# boxplot(dicdiff ~ generator, fresults, ylim=c(-600, 600), ylab="DIC Power - DIC Exp (Pos means Exp is better)", 
+#         xlab="Data Generating Process")
+# abline(h=0)
 ```
 
 # Model Recovery: Constrained/Unconstrained and Strategies (With and Without)
 ```{r model_recovery_cus}
-settings <- analysis_settings("medium")
+settings <- analysis_settings(analysis='standard')
+settings$n.chains <- 2
 source('jags/jags_subtasks-2.r')
-x <- model_recovery_subtaskscus(5)
+x <- model_recovery_subtaskscus(20)
 
-# x$fits[[1]]$dic$penalty
-# 
-# # getAnywhere('print.dic')
-# x$fits[[2]]$dic$penalty
-
-
-# 
 results <-  x$design
 results$meandeviance <-  sapply(x$fits, function(X) sum(X$dic$deviance))
 results$penalty <-  sapply(x$fits, function(X) sum(X$dic$penalty))
@@ -247,12 +258,11 @@ fresults$dicdiff_without <- fresults$dic_constrained_withoutstrategies - fresult
 fresults$dicdiff_diff <- fresults$dicdiff_with - fresults$dicdiff_without 
 
 write.csv(fresults, file='graphs/model_recovery_cus.csv')
-
 ```
 
 ## Posterior Predictive Checks Table
 
-```{r}
+```{r posterior_predictive_checks}
 source('jags/jags_subtasks-2.r')
 source('jags/posterior-predictive-checks.r')
 
@@ -269,11 +279,12 @@ predictive_checks <- list()
 # have a good burnin: 3000
 # have many iterations: 10000 
 # have thinning: 10
-posterior_predictive_check_cus <- function(strategies=FALSE, constraints=FALSE, n.iter=500) {
-    jags_model <- jags_subtasks_gamma(f='power3', strategy_predictors=strategies, theta2_constraint=constraints, gamma_constraint=constraints)
-    pc_model <- run_jags(jags_model$script, jagsdata,  jags_model$parameters, dic.run=FALSE, n.chains=1, n.iter=n.iter)
-    pc_samples <- pc_model$samples[[1]]
-    
+posterior_predictive_check_cus <- function(strategies=FALSE, constraints=FALSE, ...) {
+    jags_model <- jags_subtasks_gamma(f='power3', strategy_predictors=strategies, theta2_constraint=constraints, 
+                                      gamma_constraint=constraints)
+    pc_model <- run_jags(jags_model$script, jagsdata,  jags_model$parameters, dic.run=FALSE, showplots=FALSE)
+    pc_samples <- do.call(rbind, pc_model$samples)
+
     # 2. simulate from posterior
     simulate_unconstrained_withoutstrateties <- function(thetas) {
         simulate_data_subtasks_cus(as.list(thetas), constraints=constraints, strategies=strategies)$d
@@ -287,6 +298,8 @@ posterior_predictive_check_cus <- function(strategies=FALSE, constraints=FALSE, 
     list(summary_statistics=summaryx, raw_statistics=x)
 }
 
+
+settings <- list(n.chains= 1,  n.adapt= 200, burnin = 2000, n.iter= 10000, thin=1)
 predictive_checks$unconstrained_withoutstrategies <- posterior_predictive_check_cus(strategies=FALSE, constraints=FALSE)
 predictive_checks$constrained_withoutstrategies <- posterior_predictive_check_cus(strategies=FALSE, constraints=TRUE)
 predictive_checks$unconstrained_withstrategies <- posterior_predictive_check_cus(strategies=TRUE, constraints=FALSE)
@@ -317,6 +330,12 @@ predictive_checks_table <- cbind(dataset1,  predictive_checks_table)
             
 write.csv(predictive_checks_table, 'graphs/predictive_checks_table.csv')
 
+sink('graphs/predictive_checks_table.csv', append=TRUE)
+date()
+settings
+sink()
+
+temp <- predictive_checks$constrained_withstrategies
 ```
 
 ```{r assorted_output}
@@ -346,13 +365,13 @@ sink()
 ```
 
 # Subtask plot
-```{r}
+```{r subtask_plots}
 source('jags/jags_subtasks-2.r')
 jagsdata <- get_data_subtasks()
 returnfits_subtasks <- function(strategies=TRUE, constraints=TRUE) {
-    jags_object <- run_jags(jags_subtasks_gamma(f='power3', strategy_predictors=strategies,
-                                                theta2_constraint=constraints, gamma_constraint=constraints)$script,
-                            jagsdata, 'yhat', dic.run=FALSE, showplots=FALSE)
+    jags_object <- run_jags(jags_subtasks_gamma(f='power3', strategy_predictors=strategies, yhat=TRUE,
+                                                theta2_constraint=constraints, gamma_constraint=constraints, )$script,
+                            jagsdata, 'yhat', dic.run=FALSE, showplots=FALSE, )
     fits_samples <- do.call(rbind, jags_object$samples)
     fits_samples <- fits_samples[,  grep('yhat', colnames(fits_samples), value=TRUE)]
     fits_means <- apply(fits_samples, 2, mean)
@@ -378,28 +397,17 @@ yhatdata <- data.frame(subject=jagsdata$subject, trial=jagsdata$trial,
 
 yhat_group <- aggregate(yhatdata[, c('y', 'yhat_sfcf', 'yhat_sfct', 'yhat_stcf', 'yhat_stct')], 
                         list(trial=yhatdata$trial, subtask_index=yhatdata$subtask_index), mean)
-
+yhat_group <- merge(yhat_group, meta.subtaskplot, by.x='subtask_index', by.y='subtask_order')
+dim(yhat_group)
 
 pdf('graphs/subtaskbyblock-group.pdf')
-subtask_plot_by_model <- function(yhat_variable= 'yhat_sfcf', main='No Strategies; Unconstrained', ...) {
-    yhat_group$subtask_order <- yhat_group$subtask_index
-    yhat_group <- merge(yhat_group, meta.subtaskplot) # add meta data
-    plot(y~trial, yhat_group, xlab = "Block", 
-         ylab="Subtask completion time (sec)", ylim=c(0, 28), las=1, pch=yhat_group$pch, col=yhat_group$col,
-         main=main, ...)
-    axis(1, 1:15, 1:15)
-    for (i in meta.subtaskplot$subtask) { 
-      rbs_sub <- yhat_group[yhat_group$subtask==i, ]
-      lines(rbs_sub$trial, rbs_sub[,yhat_variable], lty=rbs_sub$lty, col=rbs_sub$col)
-    } 
-}
-par(mfrow=c(2,2))
-subtask_plot_by_model('yhat_sfcf', 'No Strategies; Unconstrained')
-subtask_plot_by_model('yhat_sfct', 'No Strategies; Constrained')
-subtask_plot_by_model('yhat_stcf', 'Strategies; Unconstrained')
-subtask_plot_by_model('yhat_stct', 'Strategies; Constrained')
-legend(7, 27, meta.subtaskplot$subtask, pch=meta.subtaskplot$pch, lty=meta.subtaskplot$lty, col=meta.subtaskplot$col)
+p <- ggplot(yhat_group, aes(x=trial, y=y), group=subtask) 
+p <-p + geom_point(aes(shape=subtask, colour=subtask))
+p
+tail(yhat_group)
 
+yhat_group$subtask
+yhat_group$subtask
 dev.off()
 
 # individual level plots
@@ -421,15 +429,23 @@ head(yhatdata_long)
 # 6 is fairly consistent
 # 8 is an example of inconsistent
 # 
-p <- ggplot(yhatdata_long[yhatdata_long$subject %in% 21, ], aes(trial, y, group=subtask)) + 
+
+ids <- c(9, 10, 13, 16)
+# ids <- c(2,6,8, 21)
+yhatdata_long$strategy <- ifelse(yhatdata_long$model %in% c("yhat_stcf", "yhat_stct"), 
+                                 'Strategies', 'No strategies')
+yhatdata_long$constraints <- ifelse(yhatdata_long$model %in% c("yhat_stct", "yhat_sfct"), 
+                                 'Constrained', 'Unconstrained')
+       dput(unique(yhatdata_long$model))
+       p <- ggplot(yhatdata_long[yhatdata_long$subject %in% ids, ], aes(trial, y, group=subtask)) + 
     geom_point(aes(colour = subtask, shape=subtask))
 p <- p + geom_line(aes(x=trial, y=yhat, linetype=subtask))
-p + facet_grid(subject ~ model)
+p <- p + facet_grid(subject ~ strategy+constraints) + scale_y_continuous("Task completion time (sec)", limits=c(0, 25)) + 
+    scale_x_continuous("Block", breaks=c(1,5, 10, 15))
+p
 
+pdf('graphs/subtaskfits-individual-examples.pdf')
+p
+dev.off()
 # add lines
-
-
-
-
-
 ```

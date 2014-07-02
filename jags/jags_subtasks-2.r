@@ -187,7 +187,7 @@ model_recovery_subtaskscus <- function(K=10) {
         jags_model <- jags_subtasks_gamma(f='power3', strategy_predictors=design$strategies[i], 
                                           theta2_constraint=design$constraints[i], gamma_constraint=design$constraints[i])
         jags_data <- ds[[ design$datasets_id[i] ]]
-        fits[[i]] <- run_jags(jags_model$script, jags_data, jags_model$parameters, dic.run=TRUE)
+        fits[[i]] <- run_jags(jags_model$script, jags_data, jags_model$parameters, dic.run=TRUE, showplots=FALSE)
     }
     
     list(fits=fits, design=design, datasets=datasets, ds=ds)
@@ -232,7 +232,7 @@ model_recovery_subtaskspve <- function(K=10) {
         cat(i, "of", nrow(design), "\n")
         jags_model <- jags_subtasks_gamma(f=paste0(design$estimator[i], '3'), strategy_predictors=FALSE)
         jags_data <- ds[[ design$datasets_id[i] ]]
-        fits[[i]] <- run_jags(jags_model$script, jags_data, jags_model$parameters, dic.run=TRUE)
+        fits[[i]] <- run_jags(jags_model$script, jags_data, jags_model$parameters, dic.run=TRUE, showplots=FALSE)
     }
     
     list(fits=fits, design=design, datasets=datasets, ds=ds)
@@ -346,7 +346,7 @@ get_data_subtasks_cus <- function(Data , user_id='subject', trial='trial', subta
 }
 
 jags_subtasks_gamma <- function (f=c('power3', 'exp3'), 
-            strategy_predictors = FALSE, theta2_constraint = FALSE, gamma_constraint = FALSE) {
+            strategy_predictors = FALSE, theta2_constraint = FALSE, gamma_constraint = FALSE, yhat=FALSE) {
     f <- match.arg(f)
 
 script <- 
@@ -358,7 +358,7 @@ model {
     # Model
     for (ijk in 1:length(y)) {
         y[ijk]  ~ dgamma(alpha[ijk], beta[ijk])
-        yhat[ijk] ~ dgamma(alpha[ijk], beta[ijk])
+        $YHAT
         alpha[ijk] <- mu[ijk]^2/sigma[subject[ijk]]^2
         beta[ijk] <- mu[ijk]/sigma[subject[ijk]]^2
 
@@ -420,6 +420,11 @@ model {
 
     # define macros
     macros <- list(
+        list("$YHAT",
+             ifelse(yhat,
+                    "yhat[ijk] ~ dgamma(alpha[ijk], beta[ijk]",
+                    "")
+             ),
         list("$FUNCTION_1",  
             switch(f,
                 power3="pow(trial[ijk], 0-$THETA2_1[subject[ijk]])",

@@ -33,7 +33,6 @@ xyplot(rt_prop~block|factor(user_id), ribs, groups=subtask, xlab = "Block", type
 
 ```{r}
 # information gathering group
-pdf('graphs/information-gatheringbyblock-group.pdf')
 v$information_gathering <- meta.componentplot$component[meta.componentplot$type == "information_gathering"]
 v$filtering <- meta.componentplot$component[meta.componentplot$type == "filtering"]
 v$components <- c(v$information_gathering, v$filtering)
@@ -53,26 +52,18 @@ names(rbc) <- c('component', 'block', 'score')
 rbc <- merge(rbc, meta.componentplot)
 rbc <- rbc[order(rbc$component, rbc$block), ]
 
-group_component_plot <- function(rbctype = 'information_gathering', legend_x=6, legend_y=1) {
-    rbc_ig <- rbc[ rbc$type == rbctype, ]
-    plot(score~block, rbc_ig,  xlab = "Block", ylab="Component usage (proportion of trials)", ylim=c(0, 1), las=1, pch=rbc_ig$pch, col=rbc_ig$col)
-    axis(1, 1:15, 1:15)
-    for (i in v[[rbctype]]) {
-      rbc_ig_sub <- rbc_ig[ rbc_ig$component ==i, ]
-      lines(rbc_ig_sub$block, rbc_ig_sub$score, lty=rbc_ig_sub$lty, col=rbc_ig_sub$col)
-    }           
-    with(meta.componentplot[meta.componentplot$component %in% v[[rbctype]], ], 
-         legend(legend_x, legend_y, legend=label, pch=pch, lty=lty, col=col))
-}
-    
-    
-pdf('graphs/informationgatheringbyblock-group.pdf')
-group_component_plot(rbctype='information_gathering', legend_x=6, legend_y=1)
+p <- ggplot(rbc, aes(x=block, y=score, group=label)) 
+p <-p + geom_point(aes(shape=label, colour=label), size=5)
+p <- p + scale_y_continuous("Proportion of usage", limits=c(0, 1)) + scale_x_continuous("Block", breaks=1:15)
+p <- p + geom_line(aes(x=block, y=score, linetype=label))
+p
+
+
+
+pdf('graphs/stratgegybyblock-group.pdf')
+p
 dev.off()
 
-pdf('graphs/filteringbyblock-group.pdf')
-group_component_plot(rbctype='filtering', legend_x=6, legend_y=.25)
-dev.off()
 
 
 # information gathering individual
@@ -96,17 +87,20 @@ dev.off()
 
 # block level analysis
 ```{r}
-xyplot(rt ~ block | user_id, rib, ylim=c(0, 80), main='rt')
+# xyplot(rt ~ block | user_id, rib, ylim=c(0, 80), main='rt')
+# 
+# ### strategies
+# for (i in v$strategies) {
+#     FORMULA <- as.formula(paste(i, '~ block | user_id'))
+#     print(xyplot(FORMULA, rib, main =i))
+# }
+# 
+# xyplot(rt + (strategy_filter_level*20) ~ block | user_id, ribs[ribs$subtask == 'timetableuse', ], main ='strategy_filter_level')
+# xyplot(rt + (strategy_filter_level*20) ~ block | user_id, ribs[ribs$subtask == 'filtering', ], main ='strategy_filter_level')
+# xyplot(rt + (strategy_filter_level*20) ~ block | user_id, ribs[ribs$subtask == 'informationgathering', ], main ='strategy_filter_level')
 
-### strategies
-for (i in v$strategies) {
-    FORMULA <- as.formula(paste(i, '~ block | user_id'))
-    print(xyplot(FORMULA, rib, main =i))
-}
 
-xyplot(rt + (strategy_filter_level*20) ~ block | user_id, ribs[ribs$subtask == 'timetableuse', ], main ='strategy_filter_level')
-xyplot(rt + (strategy_filter_level*20) ~ block | user_id, ribs[ribs$subtask == 'filtering', ], main ='strategy_filter_level')
-xyplot(rt + (strategy_filter_level*20) ~ block | user_id, ribs[ribs$subtask == 'informationgathering', ], main ='strategy_filter_level')
+
 ```
 
 

@@ -77,7 +77,6 @@ models_overall$mf2$dic
 # Plotting of fits
 ```{r fits_plot}
 source('jags/jags_overall-2.r')
-
 settings <- analysis_settings("standard")
 
 returnfits_overall <- function(f='power3') {
@@ -96,7 +95,8 @@ fits$power <- returnfits_overall('power3')
 fits$exp <- returnfits_overall('exp3')
 
 # reassemble the dataframe
-yhatdata <- data.frame(subject=jagsdata_overall$subject, trial=jagsdata_overall$trial, yhat_power= fits$power$fits_means, 
+yhatdata <- data.frame(subject=jagsdata_overall$subject, trial=jagsdata_overall$trial, 
+                       yhat_power= fits$power$fits_means, 
                        yhat_exp= fits$exp$fits_means, y=jagsdata_overall$y)
 
 yhat_group <- aggregate(yhatdata[, c('y', 'yhat_power', 'yhat_exp')], list(trial=yhatdata$trial), mean)
@@ -112,7 +112,7 @@ yhatdata_long <- do.call(rbind, yhatdata_split)
 yhatdata_long$Model <- yhatdata_long$model
 yhatdata_long$Model[yhatdata_long$model == "yhat_exp"] <- "Exponential"
 yhatdata_long$Model[yhatdata_long$model == "yhat_power"] <- "Power"
-head
+
 
 p <- ggplot(yhatdata_long, aes(trial, y), ) + geom_point() 
 p <- p + geom_line(aes(x=trial, y=yhat, linetype=Model))
@@ -123,20 +123,34 @@ pdf(file="graphs/overallrtbyblockwithfits.pdf", width=6, height=4)
 p
 dev.off()
 
-lines(yhat_group$trial, yhat_group$yhat_power, lty=1)
-lines(yhat_group$trial, yhat_group$yhat_exp, lty=2)
 
 
-yhatdata <-yhatdata[order(yhatdata$trial), ]
-yhatdata2_1 <- cbind(yhatdata[, c('trial', 'subject', 'y')], value='y')
-yhatdata2_2 <- cbind(yhatdata[, c('trial', 'subject', 'yhat_power')] , value='yhat_power')
-yhatdata2_3 <- cbind(yhatdata[, c('trial', 'subject', 'yhat_exp')] , value='yhat_exp')
-names(yhatdata2_2)[names(yhatdata2_2) == 'yhat_power'] <- 'y'
-names(yhatdata2_3)[names(yhatdata2_3) == 'yhat_exp'] <- 'y'
-yhatdata2 <- rbind(yhatdata2_1, yhatdata2_2, yhatdata2_3)
 
-xyplot(y ~ trial | factor(subject), groups=value, yhatdata2, type=c('p', 'l', 'l'), 
-       lty=c(0, 1, 2), pch=c(".", "", ""),cex=6, col='black')
+# individual level plot
+# reassemble the dataframe
 
+
+# individual level plots
+extract_model_yhat_group <- function(yhat_var='yhat_sfcf') {
+    x <- yhatdata[,c("subject", "trial", "y", yhat_var)]
+    names(x)[names(x) == yhat_var] <- 'yhat'
+    x$model <- yhat_var
+    x
+}
+
+yhatdata_split <- lapply(grep('yhat', names(yhatdata), value=TRUE), extract_model_yhat_group)
+yhatdata_long <- do.call(rbind, yhatdata_split)
+yhatdata_long$Model <- ifelse(yhatdata_long$model == "yhat_exp", "Exponential", "Power")
+
+p <- ggplot(yhatdata_long, aes(trial, y)) +  geom_point()
+p <- p + geom_line(aes(x=trial, y=yhat, linetype=Model))
+p <- p + scale_y_continuous("Task completion time (sec)", limits=c(0, 100)) + 
+    scale_x_continuous("Block", breaks=c(1,5, 10, 15))
+p <- p + facet_wrap(~subject, ncol=5) 
+p
+
+pdf(file="graphs/individual_overallrtbyblockwithfits.pdf")
+p
+dev.off()
 ```
 
