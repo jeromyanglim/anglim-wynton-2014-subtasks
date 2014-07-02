@@ -86,6 +86,7 @@ simulate_data_subtasks_cus <- function(p, constraints=FALSE, strategies=FALSE, m
     
     d <- merge(d, cases)
     
+    
     if (model == "power" ) {
         if(constraints == FALSE) {
             d$mu <- ifelse(d$subtask == 1, d$theta1_1 * d$trial ^ (0 - d$theta2_1) + d$theta3_1 * 
@@ -133,6 +134,12 @@ simulate_data_subtasks_cus <- function(p, constraints=FALSE, strategies=FALSE, m
     d$alpha <- d$mu^2 / d$sigma^2
     d$beta <- d$mu / d$sigma^2
     d$y <- rgamma(nrow(d), d$alpha, d$beta)
+    
+#     par(mfrow=c(2,2))
+#     subject <- subject + 1
+#     plot(y~trial, d[d$subject == subject & d$subtask == 1, ], ylim=c(0, 30))
+#     plot(y~trial, d[d$subject == subject & d$subtask == 2, ], ylim=c(0, 30))
+#     plot(y~trial, d[d$subject == subject & d$subtask == 3, ], ylim=c(0, 30))
 
     list(d=d, cases=cases)    
 }
@@ -422,7 +429,7 @@ model {
     macros <- list(
         list("$YHAT",
              ifelse(yhat,
-                    "yhat[ijk] ~ dgamma(alpha[ijk], beta[ijk]",
+                    "yhat[ijk] ~ dgamma(alpha[ijk], beta[ijk])",
                     "")
              ),
         list("$FUNCTION_1",  
