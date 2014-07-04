@@ -20,7 +20,9 @@ run_jags <- function(script, data, variable.names, dic.run=FALSE,
     # if script is file name, then import as file name
     if(file.exists(script))  script <-  paste( readLines(script, warn=FALSE) , collapse="\n")
     cat('jags.model: \n')
-    mod <- jags.model(textConnection(script), data=data,  n.chains=n.chains, n.adapt=n.adapt)
+    tcs <- textConnection(script)
+    mod <- jags.model(tcs, data=data,  n.chains=n.chains, n.adapt=n.adapt)
+    close(tcs)
     cat('update: \n')
     update(mod, n.iter=n.iter) # burn in
     cat('coda.samples: \n')

@@ -1,4 +1,4 @@
-Average p-value on posterior predictive checks[1] "UNCONSTRAINED_WITHOUTSTRATEGIES=0.53, CONSTRAINED_WITHOUTSTRATEGIES=0.32, UNCONSTRAINED_WITHSTRATEGIES=0.6, CONSTRAINED_WITHSTRATEGIES=0.33"
+Candice Lester completed her Masters in Psychology (Industrial and Organisational) at Deakin University. Her research interests include how personality impacts individuals in the work environment particularly with regard to network formation and the presence of dishonest behaviour. Candice is an APRHA registered psychologist and is currently working as People and Change Consultant at Ernst and Young. Candice can be contacted at: Candice_lester@me.com
 
 
 Log of productive of p-values on posterior predictive checks[1] "UNCONSTRAINED_WITHOUTSTRATEGIES=-Inf, CONSTRAINED_WITHOUTSTRATEGIES=-Inf, UNCONSTRAINED_WITHSTRATEGIES=-14.24, CONSTRAINED_WITHSTRATEGIES=-Inf"

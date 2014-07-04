@@ -188,7 +188,7 @@ model_recovery_subtaskscus <- function(K=10) {
     
     # get bayesian estimates for each row of design (i.e., each estimator for each dataset)
     fits <- list()
-    head(design)
+    
     for (i in seq(nrow(design))) {
         cat(i, "of", nrow(design), "\n")
         jags_model <- jags_subtasks_gamma(f='power3', strategy_predictors=design$strategies[i], 

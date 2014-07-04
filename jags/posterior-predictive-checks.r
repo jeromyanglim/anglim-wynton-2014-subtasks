@@ -36,7 +36,7 @@ average_subtask_correlation <- function(x) {
 
 
 calculate_statistics <- function(simulations, dataset=Data) {
-        
+    # TODO: update to ensure that it is robust to sort order of data.frame
     stats <- function (x) {
         # x: single dataset
         list(y1minus15_i_mean = mean(x[x$trial == 1 & x$subtask == 1, 'y'] - x[x$trial == 15 & x$subtask == 1, 'y']),
@@ -55,24 +55,3 @@ calculate_statistics <- function(simulations, dataset=Data) {
     dataset_stats <- stats(Data)
     list(simulations=simulations_stats, dataset=dataset_stats)
 }
-
-# summarise_statistics <- function(x) {
-#     # x: object returned from calculate statistics
-#     for_one_theta <- function(theta_i) {
-#         d <- x$dataset[[theta_i]]
-#         s <- unlist(x$simulations[theta_i, ])
-#         pvalue <- min(mean(d < s), 
-#                       mean(d > s)) * 2
-#         meanvalue <- mean(s)
-#         sdvalue <- sd(s)
-#         low95value <- as.numeric(quantile(s, .025))
-#         high95value <- as.numeric(quantile(s, .975))
-#         c(dataset=d, pvalue=pvalue, 
-#           mean=meanvalue, sd=sdvalue, 
-#           low95 =low95value,
-#           high95 = high95value)
-#     }
-#     
-#     thetas <-  names(x$dataset)
-#     sapply(thetas, for_one_theta)
-# }
