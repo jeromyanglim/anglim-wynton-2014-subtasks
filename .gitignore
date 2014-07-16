@@ -4,3 +4,4 @@
 jags/archive
 cache
 .DS_Store
+graphs/*

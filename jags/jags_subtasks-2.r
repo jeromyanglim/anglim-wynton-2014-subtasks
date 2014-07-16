@@ -595,3 +595,13 @@ model {
     list(script=script, parameters = parameters)
 }
 
+summarise_dic_diff <- function(x) {
+    list(
+        prop_better=mean(x > 0),
+        mean_dic_improvement=mean(x),
+        sd_dic_improvement=sd(x),
+        min_dic_improvement=min(x),
+        max_dic_improvement=max(x),
+        N = length(x)
+    )
+}

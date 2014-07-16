@@ -196,16 +196,7 @@ fresults <- merge(fresults, fpower)
 fresults <- merge(fresults, fexp)
 fresults$dicdiff <- fresults$dic_power - fresults$dic_exp
 
-summarise_dic_diff <- function(x) {
-    list(
-        prop_better=mean(x > 0),
-        mean_dic_improvement=mean(x),
-        sd_dic_improvement=sd(x),
-        min_dic_improvement=min(x),
-        max_dic_improvement=max(x),
-        N = length(x)
-    )
-}
+
 
 pve_dic_diff <- list()
 pve_dic_diff$exp <- summarise_dic_diff(fresults[fresults$generator=='exp', 'dicdiff'])
@@ -250,14 +241,59 @@ for (i in seq(fdic)) {
     fresults <- merge(fresults, fdic[[i]])
 }
 
+# fresults <- read.csv('graphs/model_recovery_cus-fresults.csv')
+
 # damage of constraints with strategies
 fresults$dicdiff_with <- fresults$dic_constrained_withstrategies - fresults$dic_unconstrained_withstrategies
 # damage of constraints without strategies
 fresults$dicdiff_without <- fresults$dic_constrained_withoutstrategies - fresults$dic_unconstrained_withoutstrategies
 # degree to which damage of constraints is less when strategies are present
-fresults$dicdiff_diff <- fresults$dicdiff_with - fresults$dicdiff_without 
+fresults$dicdiff_diff <- fresults$dicdiff_without - fresults$dicdiff_with
 
-write.csv(fresults, file='graphs/model_recovery_cus.csv')
+
+
+# deal with estimation issues
+filter_extreme <- function(x, zlimit=3) {
+    abs(scale(x)) > zlimit
+}
+
+fresults[fresults$generator=='constrained', 'dicdiff_with_filter'] <- 
+    filter_extreme(fresults[fresults$generator=='constrained', 'dicdiff_with'])
+fresults[fresults$generator=='constrained', 'dicdiff_without_filter'] <- 
+    filter_extreme(fresults[fresults$generator=='constrained', 'dicdiff_without'])
+fresults[fresults$generator=='unconstrained', 'dicdiff_with_filter'] <- 
+    filter_extreme(fresults[fresults$generator=='unconstrained', 'dicdiff_with'])
+fresults[fresults$generator=='unconstrained', 'dicdiff_without_filter'] <- 
+    filter_extreme(fresults[fresults$generator=='unconstrained', 'dicdiff_without'])
+
+fresultsc <- fresults[ !fresults$dicdiff_with_filter & !fresults$dicdiff_without_filter, ]
+
+
+plot(density(fresultsc[fresultsc$generator=='unconstrained', 'dicdiff_diff']))
+plot(density(fresultsc[fresultsc$generator=='unconstrained', 'dicdiff_with']))
+plot(density(fresultsc[fresultsc$generator=='unconstrained', 'dicdiff_without']))
+plot(density(fresultsc[fresultsc$generator=='constrained', 'dicdiff_with']))
+plot(density(fresultsc[fresultsc$generator=='constrained', 'dicdiff_without']))
+
+cus_dic_diff <- list()
+cus_dic_diff$constrained_dicdiff_diff <- summarise_dic_diff(fresultsc[fresultsc$generator=='constrained', 'dicdiff_diff'])
+cus_dic_diff$unconstrained_dicdiff_diff <- summarise_dic_diff(fresultsc[fresultsc$generator=='unconstrained', 'dicdiff_diff'])
+
+cus_dic_diff$unconstrained_dicdiff_with <- summarise_dic_diff(fresultsc[fresultsc$generator=='unconstrained', 'dicdiff_with'])
+cus_dic_diff$unconstrained_dicdiff_without <- summarise_dic_diff(fresultsc[fresultsc$generator=='unconstrained', 'dicdiff_without'])
+
+cus_dic_diff$constrained_dicdiff_with <- summarise_dic_diff(fresultsc[fresultsc$generator=='constrained', 'dicdiff_with'])
+cus_dic_diff$constrained_dicdiff_without <- summarise_dic_diff(fresultsc[fresultsc$generator=='constrained', 'dicdiff_without'])
+
+
+
+write.csv(fresultsc, file='graphs/model_recovery_cus.csv')
+sink('graphs/model_recovery_cus.csv', append=TRUE)
+date()
+cus_dic_diff
+settings
+sink()
+
 ```
 
 ## Posterior Predictive Checks Table
