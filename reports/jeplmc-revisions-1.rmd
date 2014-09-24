@@ -1,0 +1,106 @@
+```{r}
+library(ProjectTemplate); load.project()
+```
+
+
+# Gamma shift
+```{r message=FALSE}
+set.seed(1234)
+Data <- rib[,c('user_id', 'block', 'rt')]
+Data$user_id <- as.numeric(as.factor(Data$user_id))
+names(Data) <- c('subject', 'trial', 'y')
+N <- length(unique( Data$subject))
+
+# Convert data to input format required by JAGS
+jagsdata_overall <- list(subject=Data$subject, trial=Data$trial, y=Data$y, N=nrow(Data))
+settings <- analysis_settings("quick")
+
+m <- list()
+models_overall <- list()
+source('jags//jags_overall-2.r')
+```
+
+
+```{r}
+# 3 power
+cat(jags_overall_gamma(f='power3'), sep="\n")
+models_overall$power3 <- run_jags(jags_overall_gamma(f='power3'),jagsdata_overall , c('alpha', 'beta'), showplots = FALSE)
+
+samp <- models_overall$power3$samples
+samp <- combine.mcmc(samp)
+str(samp)
+
+i <- i + 1
+# JAGS uses shape and rate gamma parameterisation
+plot(pgamma(1:100, samp[i, 'alpha[80]'], rate=samp[i, 'beta[80]']))
+
+
+samp_a <- 
+
+ijs <- 1:375
+
+
+p <- NULL
+for (ij in ijs) {
+    alpha_var <- paste0('alpha[', ij, ']')
+    beta_var <- paste0('beta[', ij, ']')
+
+    p[ij] <-   mean(sapply(seq(nrow(samp)), function(X) pgamma(1, samp[X,alpha_var], rate=samp[X, beta_var])))
+}
+
+plot(density(p))
+max(p)
+mean(p)
+mean(jagsdata_overall$y < 30)
+min(rib$rt)
+```
+
+# constant error variance
+```{r message=FALSE}
+set.seed(1234)
+settings <- analysis_settings("standard")
+source('jags//jags_subtasks-2.r')
+jagsdata <- get_data_subtasks()
+
+script <- jags_subtasks_gamma(f="power3", theta2_constraint=FALSE,  gamma_constraint=FALSE, strategy_predictors=FALSE)
+# sink("revisions/jags-subtasks-nostrategy-differenterror.jags")
+# cat(script$script, sep='\n')
+# sink()
+
+# dput(script$parameters)
+params <- c("theta1_1.mu", "theta1_2.mu", "theta1_3.mu", "theta1_1.sigma", 
+    "theta1_2.sigma", "theta1_3.sigma", "theta2_1.mu", "theta2_2.mu", 
+    "theta2_3.mu", "theta2_1.sigma", "theta2_2.sigma", "theta2_3.sigma", 
+    "theta3_1.mu", "theta3_2.mu", "theta3_3.mu", "theta3_1.sigma", 
+    "theta3_2.sigma", "theta3_3.sigma", 
+    "sigma_1.mu", "sigma_1.sigma",
+    "sigma_2.mu", "sigma_2.sigma",
+    "sigma_3.mu", "sigma_3.sigma"
+    )
+fit <- run_jags("revisions//jags-subtasks-nostrategy-differenterror.jags", jagsdata, params, dic.run=TRUE)
+get_dic(fit$dic)
+```
+
+
+# strategy parameterisation
+```{r}
+settings <- analysis_settings("standard")
+script <- jags_subtasks_gamma(f="power3", theta2_constraint=FALSE,  
+                              gamma_constraint=FALSE, strategy_predictors=TRUE)
+
+sink("revisions/jags-subtasks-strategy.jags")
+cat(script$script, sep='\n')
+sink()
+
+# dput(script$parameters)
+params <- c("theta1_1.mu", "theta1_2.mu", "theta1_3.mu", "theta1_1.sigma", 
+    "theta1_2.sigma", "theta1_3.sigma", "theta2_1.mu", "theta2_2.mu", 
+    "theta2_3.mu", "theta2_1.sigma", "theta2_2.sigma", "theta2_3.sigma", 
+    "theta3_1.mu", "theta3_2.mu", "theta3_3.mu", "theta3_1.sigma", 
+    "theta3_2.sigma", "theta3_3.sigma", "lambda_1", "lambda_2", "sigma.mu", "sigma.sigma"
+)
+fit <- run_jags("revisions//jags-subtasks-strategy.jags", jagsdata, params, dic.run=TRUE)
+
+
+```
+

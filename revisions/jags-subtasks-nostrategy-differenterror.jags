@@ -1,0 +1,106 @@
+
+data{
+    D <- dim(X)
+}
+model {
+    # Model
+    for (ijk in 1:length(y)) {
+        y[ijk]  ~ dgamma(alpha[ijk], beta[ijk])
+        
+        alpha[ijk] <- mu[ijk]^2/ (subtask_1[ijk] * sigma_1[subject[ijk]]^2 +
+                                    subtask_2[ijk] * sigma_2[subject[ijk]]^2 +
+                                    subtask_3[ijk] * sigma_3[subject[ijk]]^2)
+        beta[ijk] <- mu[ijk]/(subtask_1[ijk] * sigma_1[subject[ijk]]^2 +
+                                    subtask_2[ijk] * sigma_2[subject[ijk]]^2 +
+                                    subtask_3[ijk] * sigma_3[subject[ijk]]^2)
+
+        mu[ijk] <- subtask_1[ijk] * (theta1_1[subject[ijk]] * pow(trial[ijk], 0-theta2_1[subject[ijk]]) + theta3_1[subject[ijk]])  + 
+             subtask_2[ijk] * (theta1_2[subject[ijk]] * pow(trial[ijk], 0-theta2_2[subject[ijk]]) + theta3_2[subject[ijk]])  +
+             subtask_3[ijk] * (theta1_3[subject[ijk]] * pow(trial[ijk], 0-theta2_3[subject[ijk]]) + theta3_3[subject[ijk]])  
+
+    }
+        
+    # Random coefficients
+    for (i in 1:N) {    
+        theta1_1[i] ~ dgamma(theta1_1.alpha, theta1_1.beta)
+        theta1_2[i] ~ dgamma(theta1_2.alpha, theta1_2.beta)
+        theta1_3[i] ~ dgamma(theta1_3.alpha, theta1_3.beta) 
+
+        theta2_1[i] ~ dgamma(theta2_1.alpha, theta2_1.beta)
+    theta2_2[i] ~ dgamma(theta2_2.alpha, theta2_2.beta)
+    theta2_3[i] ~ dgamma(theta2_3.alpha, theta2_3.beta)
+
+        theta3_1[i] ~ dgamma(theta3_1.alpha, theta3_1.beta)
+    theta3_2[i] ~ dgamma(theta3_2.alpha, theta3_2.beta)
+    theta3_3[i] ~ dgamma(theta3_3.alpha, theta3_3.beta)
+
+        sigma_1[i] ~ dgamma(sigma_1.alpha, sigma_1.beta)
+        sigma_2[i] ~ dgamma(sigma_2.alpha, sigma_2.beta)
+        sigma_3[i] ~ dgamma(sigma_3.alpha, sigma_3.beta)
+    }
+        
+    # priors
+    theta1_1.mu ~ dunif(0, 50) 
+    theta1_2.mu ~ dunif(0, 50) 
+    theta1_3.mu ~ dunif(0, 50) 
+    
+    theta1_1.sigma ~ dunif(0, 50)
+    theta1_2.sigma ~ dunif(0, 50)
+    theta1_3.sigma ~ dunif(0, 50)
+
+    theta2_1.mu ~ dunif(0, 2)
+    theta2_2.mu ~ dunif(0, 2)
+    theta2_3.mu ~ dunif(0, 2)
+    theta2_1.sigma ~ dunif(0, 2)
+    theta2_2.sigma ~ dunif(0, 2)
+    theta2_3.sigma ~ dunif(0, 2)
+
+    theta3_1.mu ~ dunif(0, 30)
+    theta3_2.mu ~ dunif(0, 30)
+    theta3_3.mu ~ dunif(0, 30)
+
+    theta3_1.sigma ~ dunif(0, 30)
+    theta3_2.sigma ~ dunif(0, 30)
+    theta3_3.sigma ~ dunif(0, 30)
+
+    
+
+    sigma_1.mu ~ dunif(0, 20)    
+    sigma_1.sigma ~ dunif(0, 10) 
+    sigma_2.mu ~ dunif(0, 20)    
+    sigma_2.sigma ~ dunif(0, 10) 
+    sigma_3.mu ~ dunif(0, 20)    
+    sigma_3.sigma ~ dunif(0, 10) 
+
+        
+    # transformations
+    theta1_1.alpha <- theta1_1.mu^2 / theta1_1.sigma^2
+    theta1_1.beta <- theta1_1.mu/theta1_1.sigma^2
+    theta1_2.alpha <- theta1_2.mu^2 / theta1_2.sigma^2
+    theta1_2.beta <- theta1_2.mu/theta1_2.sigma^2
+    theta1_3.alpha <- theta1_3.mu^2 / theta1_3.sigma^2
+    theta1_3.beta <- theta1_3.mu/theta1_3.sigma^2
+
+    theta2_1.alpha <- theta2_1.mu^2/theta2_1.sigma^2
+    theta2_1.beta <- theta2_1.mu/theta2_1.sigma^2
+    theta2_2.alpha <- theta2_2.mu^2/theta2_2.sigma^2
+    theta2_2.beta <- theta2_2.mu/theta2_2.sigma^2
+    theta2_3.alpha <- theta2_3.mu^2/theta2_3.sigma^2
+    theta2_3.beta <- theta2_3.mu/theta2_3.sigma^2
+
+    theta3_1.alpha <- theta3_1.mu^2/theta3_1.sigma^2
+    theta3_1.beta <- theta3_1.mu/theta3_1.sigma^2
+    theta3_2.alpha <- theta3_2.mu^2/theta3_2.sigma^2
+    theta3_2.beta <- theta3_2.mu/theta3_2.sigma^2
+    theta3_3.alpha <- theta3_3.mu^2/theta3_3.sigma^2
+    theta3_3.beta <- theta3_3.mu/theta3_3.sigma^2
+
+    sigma_1.alpha <- sigma_1.mu^2/sigma_1.sigma^2
+    sigma_1.beta <- sigma_1.mu/sigma_1.sigma^2
+    sigma_2.alpha <- sigma_2.mu^2/sigma_2.sigma^2
+    sigma_2.beta <- sigma_2.mu/sigma_2.sigma^2
+    sigma_3.alpha <- sigma_3.mu^2/sigma_3.sigma^2
+    sigma_3.beta <- sigma_3.mu/sigma_3.sigma^2
+
+    
+}
