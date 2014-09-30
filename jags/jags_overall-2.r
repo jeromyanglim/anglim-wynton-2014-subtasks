@@ -1,4 +1,4 @@
-jags_overall_gamma <- function (f=c('power2', 'power3', 'exp3'), ymax=100) {
+jags_overall_gamma <- function (f=c('power2', 'power3', 'exp3'), ymax=100, prior_multiplier = 1 ) {
     f <- match.arg(f)
     
     # raw script
@@ -25,17 +25,17 @@ jags_overall_gamma <- function (f=c('power2', 'power3', 'exp3'), ymax=100) {
     }
 
     # priors
-    theta1.mu ~ dunif(0, 50) 
-    theta2.mu ~ dunif(0, 2)
-    theta3.mu ~ dunif(0, 30)
+    theta1.mu ~ dunif(0, 50 * $prior_multiplier) 
+    theta2.mu ~ dunif(0, 2 * $prior_multiplier)
+    theta3.mu ~ dunif(0, 30 * $prior_multiplier)
     # $THETA3PRIOR.MU
-    sigma.mu ~ dunif(0, 20)
+    sigma.mu ~ dunif(0, 20 * $prior_multiplier)
 
-    theta1.sigma ~ dunif(0, 50)
-    theta2.sigma ~ dunif(0, 2)
-    theta3.sigma ~ dunif(0, 30)
+    theta1.sigma ~ dunif(0, 50 * $prior_multiplier)
+    theta2.sigma ~ dunif(0, 2 * $prior_multiplier)
+    theta3.sigma ~ dunif(0, 30 * $prior_multiplier)
     # $THETA3PRIOR.SIGMA
-    sigma.sigma ~ dunif(0, 10)
+    sigma.sigma ~ dunif(0, 10 * $prior_multiplier)
  
     # transformations
        theta1.alpha <- theta1.mu^2 / theta1.sigma^2
@@ -63,5 +63,7 @@ jags_overall_gamma <- function (f=c('power2', 'power3', 'exp3'), ymax=100) {
      for (m in seq(macros)) {
          script <- gsub(macros[[m]][1], macros[[m]][2], script, fixed=TRUE)
      }
+    script <- gsub("$prior_multiplier", prior_multiplier, script, fixed = TRUE)
+
     script
 }

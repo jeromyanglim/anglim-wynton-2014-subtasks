@@ -34,6 +34,17 @@ average_subtask_correlation <- function(x) {
     sapply(sx, per_person)
 }
 
+mean_sd <- function(x) {    
+    agg <- aggregate(y ~ trial, x, sd)
+    mean(agg$y)
+}
+
+mean_quantile <- function(x, prob=.1) {    
+    agg <- aggregate(y ~ trial, x, function(X) quantile(X, prob))
+    mean(agg$y)
+}
+
+
 
 calculate_statistics <- function(simulations, dataset=Data) {
     # TODO: update to ensure that it is robust to sort order of data.frame
@@ -48,7 +59,15 @@ calculate_statistics <- function(simulations, dataset=Data) {
              sd_ratio_15to1_mean = mean(sd_ratio_15to1(x)),
              sd_ratio_15to1_sd = sd(sd_ratio_15to1(x)),
              average_subtask_correlation_mean = mean(average_subtask_correlation(x)),
-             average_subtask_correlation_sd = sd(average_subtask_correlation(x))
+             average_subtask_correlation_sd = sd(average_subtask_correlation(x)),
+             # mean of the block level SD
+             mean_sd_i = mean_sd(x[x$subtask == 1, ] ),
+             mean_sd_f = mean_sd(x[x$subtask == 2, ] ),
+             mean_sd_t = mean_sd(x[x$subtask == 3, ] ),
+            # mean .1 quantile             
+             mean_quantile10_i = mean_quantile(x[x$subtask == 1, ], prob=.1 ),
+             mean_quantile10_f = mean_quantile(x[x$subtask == 2, ], prob=.1 ),
+             mean_quantile10_t = mean_quantile(x[x$subtask == 3, ], prob=.1 )
         )
     }
     simulations_stats <- sapply(simulations, stats)

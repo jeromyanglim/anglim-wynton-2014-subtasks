@@ -353,7 +353,7 @@ get_data_subtasks_cus <- function(Data , user_id='subject', trial='trial', subta
 }
 
 jags_subtasks_gamma <- function (f=c('power3', 'exp3'), 
-            strategy_predictors = FALSE, theta2_constraint = FALSE, gamma_constraint = FALSE, yhat=FALSE) {
+            strategy_predictors = FALSE, theta2_constraint = FALSE, gamma_constraint = FALSE, yhat=FALSE, prior_multiplier=1) {
     f <- match.arg(f)
 
 script <- 
@@ -389,13 +389,13 @@ model {
     }
         
     # priors
-    theta1_1.mu ~ dunif(0, 50) 
-    theta1_2.mu ~ dunif(0, 50) 
-    theta1_3.mu ~ dunif(0, 50) 
+    theta1_1.mu ~ dunif(0, 50 * $prior_multiplier) 
+    theta1_2.mu ~ dunif(0, 50 * $prior_multiplier) 
+    theta1_3.mu ~ dunif(0, 50 * $prior_multiplier) 
     
-    theta1_1.sigma ~ dunif(0, 50)
-    theta1_2.sigma ~ dunif(0, 50)
-    theta1_3.sigma ~ dunif(0, 50)
+    theta1_1.sigma ~ dunif(0, 50 * $prior_multiplier)
+    theta1_2.sigma ~ dunif(0, 50 * $prior_multiplier)
+    theta1_3.sigma ~ dunif(0, 50 * $prior_multiplier)
 
     $THETA_2_PRIOR
 
@@ -403,8 +403,8 @@ model {
 
     $STRATEGY_PRIOR
 
-    sigma.mu ~ dunif(0, 20)    
-    sigma.sigma ~ dunif(0, 10) 
+    sigma.mu ~ dunif(0, 20 * $prior_multiplier)    
+    sigma.sigma ~ dunif(0, 10 * $prior_multiplier) 
 
         
     # transformations
@@ -509,26 +509,26 @@ model {
         ),
         list("$THETA_2_PRIOR",  
              ifelse(theta2_constraint,  
-                    "theta2.mu ~ dunif(0, 2)
-    theta2.sigma ~ dunif(0, 2)",
-                    "theta2_1.mu ~ dunif(0, 2)
-    theta2_2.mu ~ dunif(0, 2)
-    theta2_3.mu ~ dunif(0, 2)
-    theta2_1.sigma ~ dunif(0, 2)
-    theta2_2.sigma ~ dunif(0, 2)
-    theta2_3.sigma ~ dunif(0, 2)")
+                    "theta2.mu ~ dunif(0, 2 * $prior_multiplier)
+    theta2.sigma ~ dunif(0, 2 * $prior_multiplier)",
+                    "theta2_1.mu ~ dunif(0, 2 * $prior_multiplier)
+    theta2_2.mu ~ dunif(0, 2 * $prior_multiplier)
+    theta2_3.mu ~ dunif(0, 2 * $prior_multiplier)
+    theta2_1.sigma ~ dunif(0, 2 * $prior_multiplier)
+    theta2_2.sigma ~ dunif(0, 2 * $prior_multiplier)
+    theta2_3.sigma ~ dunif(0, 2 * $prior_multiplier)")
              ),
         list("$THETA_3_PRIOR",  
              ifelse(gamma_constraint, 
-                    "gamma.mu ~ dunif(0, 5)
-    gamma.sigma ~ dunif(0, 5)",
-                    "theta3_1.mu ~ dunif(0, 30)
-    theta3_2.mu ~ dunif(0, 30)
-    theta3_3.mu ~ dunif(0, 30)
+                    "gamma.mu ~ dunif(0, 5 * $prior_multiplier)
+    gamma.sigma ~ dunif(0, 5 * $prior_multiplier)",
+                    "theta3_1.mu ~ dunif(0, 30 * $prior_multiplier)
+    theta3_2.mu ~ dunif(0, 30 * $prior_multiplier)
+    theta3_3.mu ~ dunif(0, 30 * $prior_multiplier)
 
-    theta3_1.sigma ~ dunif(0, 30)
-    theta3_2.sigma ~ dunif(0, 30)
-    theta3_3.sigma ~ dunif(0, 30)")
+    theta3_1.sigma ~ dunif(0, 30 * $prior_multiplier)
+    theta3_2.sigma ~ dunif(0, 30 * $prior_multiplier)
+    theta3_3.sigma ~ dunif(0, 30 * $prior_multiplier)")
              ),
         list("$STRATEGY_PRIOR",  
              ifelse(strategy_predictors, 
@@ -571,6 +571,8 @@ model {
     for (m in seq(macros)) {
         script <- gsub(macros[[m]][1], macros[[m]][2], script, fixed=TRUE)
     }
+
+    script <- gsub("$prior_multiplier", prior_multiplier, script, fixed = TRUE)
 
     # return parameters
     parameters <- c('theta1_1.mu', 'theta1_2.mu', 'theta1_3.mu',

@@ -104,3 +104,377 @@ fit <- run_jags("revisions//jags-subtasks-strategy.jags", jagsdata, params, dic.
 
 ```
 
+
+# 10th percentile Quantiles, SD and Posterior predictive checks
+```{r}
+aggregate(ribs$rt, list(block=ribs$block, subtask=ribs$subtask), mean)
+agg <- aggregate(ribs$rt, list(block=ribs$block, subtask=ribs$subtask), sd)
+plot_stuff <- function(FUN, ...) {
+    agg <- aggregate(rt~block+subtask, ribs, FUN)
+    print(xyplot(rt~block, group=subtask, agg, type='l', auto.key=TRUE, ...))
+}
+
+plot_stuff(mean, ylab="mean rt")
+plot_stuff(sd, ylab="sd rt")
+plot_stuff(function(X) quantile(X, .10), ylab="10th percentile")
+plot_stuff(function(X) quantile(X, .20), ylab="20th percentile")
+
+agg <- aggregate(rt~block+subtask, ribs, sd)
+agg <- aggregate(rt~subtask, agg, mean)
+
+agg <- aggregate(rt~block+subtask, ribs, function(X) quantile(X, .1))
+agg <- aggregate(rt~subtask, agg, mean)
+
+
+```
+
+# Posterior predictive checks
+```{r}
+```{r posterior_predictive_checks_version2_yhats}
+source('jags/jags_subtasks-2.r')
+source('jags/posterior-predictive-checks.r')
+
+
+# prepare data file to be consistent with simulated datasets
+Data <- ribs[,c('user_id', 'subtask', 'block', 'rt')]
+names(Data) <- c('subject', 'subtask_text', 'trial', 'y')
+Data$subtask <-  as.numeric(factor(Data$subtask_text, levels=c('informationgathering', 'filtering', 'timetableuse')))
+Data$subject <- as.numeric(factor(Data$subject))
+
+predictive_checks <- list()
+
+# unconstrained without strategies
+# 1. get posterior samples
+# have a good burnin: 3000
+# have many iterations: 10000 
+# have thinning: 10
+posterior_predictive_check_cus <- function(strategies=FALSE, constraints=FALSE, ...) {
+    jags_model <- jags_subtasks_gamma(f='power3', strategy_predictors=strategies, theta2_constraint=constraints, 
+                                      gamma_constraint=constraints, yhat=TRUE)
+    pc_model <- run_jags(jags_model$script, jagsdata,  'yhat', dic.run=FALSE, showplots=FALSE)
+    pc_samples <- do.call(rbind, pc_model$samples)
+    
+#     # 2. simulate from posterior
+#     simulate_unconstrained_withoutstrateties <- function(thetas) {
+#         simulate_data_subtasks_cus(as.list(thetas), constraints=constraints, strategies=strategies)$d
+#     }
+#     
+    simulations <- lapply(seq(nrow(pc_samples)), function(X)
+        data.frame(subject=jagsdata$subject, trial=jagsdata$trial, 
+                                       subtask=jagsdata$subtask_index, y=pc_samples[X,]))    
+    
+    # 3. calculate statistics on simulated data and data
+    x <- calculate_statistics(simulations, Data)
+    summaryx <- summarise_statistics(x)
+    list(summary_statistics=summaryx, raw_statistics=x)
+}
+
+
+
+settings <- list(n.chains= 1,  n.adapt= 200, burnin = 2000, n.iter= 10000, thin=1)
+# settings <- list(n.chains= 1,  n.adapt= 200, burnin = 500, n.iter= 1000, thin=1)
+
+
+predictive_checks$unconstrained_withoutstrategies <- posterior_predictive_check_cus(strategies=FALSE, constraints=FALSE)
+predictive_checks$constrained_withoutstrategies <- posterior_predictive_check_cus(strategies=FALSE, constraints=TRUE)
+predictive_checks$unconstrained_withstrategies <- posterior_predictive_check_cus(strategies=TRUE, constraints=FALSE)
+predictive_checks$constrained_withstrategies <- posterior_predictive_check_cus(strategies=TRUE, constraints=TRUE)
+
+lapply(predictive_checks, function(X) X$summary_statistics)
+
+# create the summary table for posterior predictive checks 
+extract_checks <- function(statistics_summary, statistics, digits=2) {
+    combine_formatted <- function(x, digits) {
+        formatted <- specify_decimal(x, digits)
+        paste0(formatted['mean'], '\n', '(', formatted['low95'], ' - ', 
+               formatted['high95'], ')',
+               '\n', 'p=', formatted['pvalue'])
+    }
+    
+    statistics_summary <- statistics_summary[,statistics]
+    sapply(colnames(statistics_summary), 
+           function(X) combine_formatted(statistics_summary[, X], digits))
+}
+
+predictive_checks_table <- sapply(predictive_checks, function(X) 
+    extract_checks(X$summary_statistics, colnames(X$summary_statistics))
+    )
+
+dataset1 <- specify_decimal(predictive_checks[[1]]$summary_statistics['dataset', ], 2)
+predictive_checks_table <- cbind(dataset1,  predictive_checks_table)
+            
+write.csv(predictive_checks_table, 'graphs/predictive_checks_table-revision-1.csv')
+
+sink('graphs/predictive_checks_table-revision-1.csv', append=TRUE)
+date()
+settings
+sink()
+
+temp <- predictive_checks$constrained_withstrategies
+```
+
+# Deviance distributions
+```{r}
+# overall task
+devdist <- list()
+settings <- analysis_settings("publication")
+devdist$power3 <- run_jags(jags_overall_gamma(f='power3'),jagsdata_overall , c('deviance'), showplots = FALSE, dic.run=FALSE)
+devdist$exp3 <- run_jags(jags_overall_gamma(f='exp3'),jagsdata_overall , c('deviance'), showplots = FALSE, dic.run=FALSE)
+samppower <- combine.mcmc(devdist$power3$samples)
+sampexp <- combine.mcmc(devdist$exp3$samples)
+library(psych)
+dat <- data.frame(cbind(exp=as.numeric(sampexp), power=as.numeric(samppower)))
+head(dat)
+psych::describe(dat)
+
+par(mfrow=c(2,1))
+hist(sampexp, xlim=c(1850, 2000))
+hist(samppower, xlim=c(1850, 2000))
+
+settings <- analysis_settings("standard")
+# subtask
+model_grid <- expand.grid(f=c('power3', 'exp3'), theta2_constraint=c(TRUE, FALSE),  
+                           gamma_constraint=c(TRUE, FALSE), strategy_predictors=c(TRUE, FALSE),
+                           stringsAsFactors=FALSE)
+model_grid$name <- paste(
+    sapply(model_grid$f, switch, power3='p3', exp3='e3'),
+    ifelse(model_grid$theta2_constraint, 'tc', 'tu'),
+    ifelse(model_grid$gamma_constraint, 'gc', 'gu'),
+    ifelse(model_grid$strategy_predictors, 'st', 'sf'), 
+    sep="_")
+
+model_fits <- list()
+for (i in seq(nrow(model_grid))) {
+    cat(i)
+    script <- jags_subtasks_gamma(f=model_grid$f[i], 
+                                  theta2_constraint=model_grid$theta2_constraint[i], 
+                                gamma_constraint=model_grid$gamma_constraint[i], 
+                                strategy_predictors=model_grid$strategy_predictors[i])
+    model_fits[[ model_grid$name[i] ]] <- run_jags(script$script, jagsdata,  "deviance", dic.run=TRUE)
+}
+
+```
+
+# exponential constrained no strategies (parameters)
+```{r}
+set.seed(1234)
+settings <- analysis_settings("standard")
+source('jags//jags_subtasks-2.r')
+jagsdata <- get_data_subtasks()
+
+script <- jags_subtasks_gamma(f="exp3", theta2_constraint=TRUE,
+                              gamma_constraint=TRUE, 
+                              strategy_predictors=FALSE)
+fit <- run_jags(script$script, jagsdata,  script$parameters, dic.run=TRUE)
+
+debugonce(create_parameter_table)
+subtasks_ptable <- create_parameter_table(
+    samples = list(
+        e3_tc_gc_sf=fit$samples,
+        e3_tc_gc_sf=fit$samples),
+        dics = list(
+            e3_tc_gc_sf=fit$dic,
+            e3_tc_gc_sf=fit$dic),
+            parameter_order =  c(          
+                "theta1_1.mu", "theta1_2.mu", "theta1_3.mu",
+           "theta2_1.mu", "theta2_2.mu", "theta2_3.mu",
+           "theta3_1.mu", "theta3_2.mu", "theta3_3.mu",
+          "gamma.mu", "theta2.mu","sigma.mu",  
+          "theta1_1.sigma", "theta1_2.sigma", "theta1_3.sigma",
+           "theta2_1.sigma", "theta2_2.sigma", "theta2_3.sigma",
+           "theta3_1.sigma", "theta3_2.sigma", "theta3_3.sigma",
+          "gamma.sigma", "theta2.sigma","sigma.sigma"))
+write.csv(subtasks_ptable, 'graphs/subtasks_parameter_table-revision-1.csv', na="")
+
+
+```
+
+# priors
+```{r}
+# examination of cutting-off part of likelihood
+x <- rnorm(1000000, 0, 1)
+z_cutoff <- c(1, 2,3,4,5)
+diffs <- sapply(z_cutoff, function(X) mean(x[x < X]))
+cbind(z_cutoff, diffs)
+```
+
+```{r}
+set.seed(1234)
+Data <- rib[,c('user_id', 'block', 'rt')]
+Data$user_id <- as.numeric(as.factor(Data$user_id))
+names(Data) <- c('subject', 'trial', 'y')
+N <- length(unique( Data$subject))
+
+# Convert data to input format required by JAGS
+jagsdata_overall <- list(subject=Data$subject, trial=Data$trial, y=Data$y, N=nrow(Data))
+settings <- analysis_settings("standard")
+
+m <- list()
+models_overall <- list()
+source('jags//jags_overall-2.r')
+
+multiplier <- 10 # repeat for 2 and 10
+models_overall$power3_2 <- run_jags(jags_overall_gamma(f='power3', prior_multiplier = multiplier),
+                                  jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+                                              'theta2.mu', 'theta2.sigma' ,
+                                              'theta3.mu', 'theta3.sigma', 
+                                               'sigma.mu', 'sigma.sigma'), dic.run=TRUE)
+
+# 3 exponential
+models_overall$exp3_2 <- run_jags(jags_overall_gamma(f='exp3', prior_multiplier=multiplier),
+                                  jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+                                              'theta2.mu', 'theta2.sigma' ,
+                                              'theta3.mu', 'theta3.sigma', 
+                                               'sigma.mu', 'sigma.sigma'), dic.run=TRUE)
+
+get_dic(models_overall$power3_2$dic)
+get_dic(models_overall$exp3_2$dic)
+
+```
+
+
+```{r}
+set.seed(1234)
+settings <- analysis_settings("standard")
+source('jags//jags_subtasks-2.r')
+jagsdata <- get_data_subtasks()
+
+script <- jags_subtasks_gamma(f="power3", 
+                              theta2_constraint=FALSE,  gamma_constraint=FALSE,  strategy_predictors=FALSE, 
+                              prior_multiplier = 10)
+fit <- run_jags(script$script, jagsdata,  script$parameters, dic.run=TRUE)
+
+
+get_dic(fit$dic)
+
+```
+
+
+# Correlations between parameters
+```{r}
+source('jags//jags_overall-2.r')
+settings <- analysis_settings("standard")
+
+models_cor <- list()
+models_cor$power3 <- run_jags(jags_overall_gamma(f='power3'),
+                                  jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+                                              'theta2.mu', 'theta2.sigma' ,
+                                              'theta3.mu', 'theta3.sigma', 
+                                               'sigma.mu', 'sigma.sigma'), dic.run=FALSE)
+models_cor$exp3 <- run_jags(jags_overall_gamma(f='exp3'),
+                                  jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+                                              'theta2.mu', 'theta2.sigma' ,
+                                              'theta3.mu', 'theta3.sigma', 
+                                               'sigma.mu', 'sigma.sigma'), dic.run=FALSE)
+
+cor_plot <- function(samp = models_cor$power3$samples) {
+    samp <- data.frame(combine.mcmc(samp))
+    print(round(cor(samp), 2))
+    r <- cor(samp)
+    print(mean(r[2,1],  r[4,3],  r[6,5],  r[8,7]))
+    
+    psych::pairs.panels(samp)
+    round(print(c(t1m_t2m=r[3,5], t1m_t3m=r[3, 7], t2m_t3m=r[5, 7])), 2)
+}
+cor_plot(models_cor$exp3$samples)
+cor_plot(models_cor$power3$samples)
+
+
+
+
+```
+
+```{r}
+source('jags/jags_overall-2.r')
+settings <- analysis_settings("standard")
+
+returnfits_overall <- function(f='power3') {
+    jags_object <- run_jags(jags_overall_gamma(f=f),jagsdata_overall , c('theta1.mu', 'theta1.sigma', 
+                                              'theta2.mu', 'theta2.sigma' ,
+                                              'theta3.mu', 'theta3.sigma', 
+                                               'sigma.mu', 'sigma.sigma', 'yhat'), dic.run=FALSE, showplots=FALSE)
+    fits_samples <- do.call(rbind, jags_object$samples)
+    fits_samples <- fits_samples[,  grep('yhat', colnames(fits_samples), value=TRUE)]
+    fits_means <- apply(fits_samples, 2, mean)
+    list(fits_means=fits_means, jagsdata_overall=jagsdata_overall)
+}
+    
+fits <- list() 
+fits$power <- returnfits_overall('power3')
+fits$exp <- returnfits_overall('exp3')
+
+# reassemble the dataframe
+yhatdata <- data.frame(subject=jagsdata_overall$subject, trial=jagsdata_overall$trial, 
+                       yhat_power= fits$power$fits_means, 
+                       yhat_exp= fits$exp$fits_means, y=jagsdata_overall$y)
+
+yhat_group <- aggregate(yhatdata[, c('y', 'yhat_power', 'yhat_exp')], list(trial=yhatdata$trial), mean)
+
+extract_model_overall_yhat <- function(yhat_var='yhat_power', variables=c("trial", "y"), data=yhat_group) {
+    x <- data[,c(variables, yhat_var)]
+    names(x)[names(x) == yhat_var] <- 'yhat'
+    x$model <- yhat_var
+    x
+}
+yhatdata_split <- lapply(grep('yhat', names(yhat_group), value=TRUE), function(X) extract_model_overall_yhat(X))
+yhatdata_long <- do.call(rbind, yhatdata_split)
+yhatdata_long$Model <- yhatdata_long$model
+yhatdata_long$Model[yhatdata_long$model == "yhat_exp"] <- "Exponential"
+yhatdata_long$Model[yhatdata_long$model == "yhat_power"] <- "Power"
+
+
+# add error bars
+std_error <- function(x) sd(x)/sqrt(length(x))
+ses <- sapply(split(rib$rt,  rib$block), std_error)
+ses <- data.frame(trial=as.numeric(names(ses)), se=ses)
+yhatdata_long <- merge(  yhatdata_long, ses)
+
+
+
+
+p <- ggplot(yhatdata_long, aes(trial, y), ) + geom_point() 
+p <- p + geom_line(aes(x=trial, y=yhat, linetype=Model))
+p <- p  + scale_y_continuous("Task completion time (sec)", limits=c(0, 50)) + 
+    scale_x_continuous("Block", breaks=1:15) 
+p <- p + geom_errorbar(aes(ymin=y-se, ymax=y+se), width=.1)
+p
+
+pdf(file="graphs/overallrtbyblockwithfits-revised.pdf", width=6, height=4)
+p
+dev.off()
+
+```
+
+
+# Posterior predictive checks (PPC)
+```{r}
+load('saved-fits/predictive_checks.RData')
+str(predictive_checks$unconstrained_withoutstrategies)
+
+ppc <- lapply(names(predictive_checks),  function(X) 
+        unlist(predictive_checks[[X]]$raw_statistics$simulations['y1minus15_f_mean', ]))
+names(ppc) <- names(predictive_checks)
+
+ppcd <- rbind(data.frame(strategy=FALSE, constraints=FALSE, y=ppc$unconstrained_withoutstrategies),
+      data.frame(strategy=FALSE, constraints=TRUE, y=ppc$constrained_withoutstrategies),
+    data.frame(strategy=TRUE, constraints=FALSE, y=ppc$unconstrained_withstrategies),
+    data.frame(strategy=TRUE, constraints=TRUE, y=ppc$constrained_withstrategies))
+ppcd$strategy <- ifelse(ppcd$strategy, "Strategies", "No Strategies")
+ppcd$constraints <- ifelse(ppcd$constraints, "Constrained", "Unconstrained")
+ppc_data <- predictive_checks$unconstrained_withoutstrategies$raw_statistics$dataset$y1minus15_f_mean
+
+# plotting
+p <- ggplot(ppcd, aes(x=y)) +  geom_density()
+p <- p + geom_vline(xintercept = ppc_data, linetype = 2)
+p <- p + facet_grid(constraints~ strategy) 
+p <- p + scale_x_continuous("Mean Filtering Improvement", limits=c(0, 8))
+p <- p + scale_y_continuous("Density of Statistics Simulated from Posterior")
+p
+
+pdf('graphs/ppc-mean-filtering.pdf')
+p
+dev.off()
+```
+
+
+ 
